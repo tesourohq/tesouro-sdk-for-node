@@ -1,11 +1,17 @@
-import { SdkError, NetworkError, GraphQLError, GraphQLErrorPath, GraphQLErrorExtensions } from './errors';
+import {
+  SdkError,
+  NetworkError,
+  GraphQLError,
+  GraphQLErrorPath,
+  GraphQLErrorExtensions,
+} from './errors';
 
 describe('SdkError', () => {
   describe('constructor', () => {
     it('should create an error with the correct message', () => {
       const message = 'Test error message';
       const error = new SdkError(message);
-      
+
       expect(error.message).toBe(message);
     });
 
@@ -18,7 +24,7 @@ describe('SdkError', () => {
       const beforeCreate = new Date();
       const error = new SdkError('test');
       const afterCreate = new Date();
-      
+
       expect(error.timestamp).toBeInstanceOf(Date);
       expect(error.timestamp.getTime()).toBeGreaterThanOrEqual(beforeCreate.getTime());
       expect(error.timestamp.getTime()).toBeLessThanOrEqual(afterCreate.getTime());
@@ -27,7 +33,7 @@ describe('SdkError', () => {
     it('should store cause when provided', () => {
       const cause = new Error('underlying error');
       const error = new SdkError('test', cause);
-      
+
       expect((error as any).cause).toBe(cause);
     });
 
@@ -68,12 +74,12 @@ describe('SdkError', () => {
       const message = 'test message';
       const error = new SdkError(message);
       const json = error.toJSON();
-      
+
       expect(json).toMatchObject({
         name: 'SdkError',
         message: message,
         timestamp: error.timestamp.toISOString(),
-        stack: error.stack
+        stack: error.stack,
       });
     });
 
@@ -81,14 +87,14 @@ describe('SdkError', () => {
       const cause = { message: 'underlying error' };
       const error = new SdkError('test', cause);
       const json = error.toJSON();
-      
+
       expect(json.cause).toBe(cause);
     });
 
     it('should not include cause in JSON when not present', () => {
       const error = new SdkError('test');
       const json = error.toJSON();
-      
+
       expect(json).not.toHaveProperty('cause');
     });
   });
@@ -98,7 +104,7 @@ describe('SdkError', () => {
       const message = 'test message';
       const error = new SdkError(message);
       const string = error.toString();
-      
+
       expect(string).toBe(`SdkError: ${message} (${error.timestamp.toISOString()})`);
     });
   });
@@ -121,7 +127,7 @@ describe('SdkError', () => {
     it('should serialize inherited errors correctly', () => {
       const error = new CustomError('test');
       const json = error.toJSON();
-      
+
       expect(json.name).toBe('CustomError');
     });
   });
@@ -132,7 +138,7 @@ describe('NetworkError', () => {
     it('should create a network error with message only', () => {
       const message = 'Network connection failed';
       const error = new NetworkError(message);
-      
+
       expect(error.message).toBe(message);
       expect(error.name).toBe('NetworkError');
       expect(error.statusCode).toBeUndefined();
@@ -143,7 +149,7 @@ describe('NetworkError', () => {
       const message = 'Server error';
       const statusCode = 500;
       const error = new NetworkError(message, statusCode);
-      
+
       expect(error.message).toBe(message);
       expect(error.statusCode).toBe(statusCode);
     });
@@ -153,7 +159,7 @@ describe('NetworkError', () => {
       const statusCode = 404;
       const requestId = 'req-123';
       const error = new NetworkError(message, statusCode, requestId);
-      
+
       expect(error.message).toBe(message);
       expect(error.statusCode).toBe(statusCode);
       expect(error.requestId).toBe(requestId);
@@ -163,7 +169,7 @@ describe('NetworkError', () => {
       const message = 'Network error';
       const cause = new Error('underlying error');
       const error = new NetworkError(message, 500, 'req-123', cause);
-      
+
       expect(error.cause).toBe(cause);
     });
   });
@@ -195,7 +201,7 @@ describe('NetworkError', () => {
       const error500 = new NetworkError('server error', 500);
       const error502 = new NetworkError('bad gateway', 502);
       const error503 = new NetworkError('service unavailable', 503);
-      
+
       expect(error500.isRetryable()).toBe(true);
       expect(error502.isRetryable()).toBe(true);
       expect(error503.isRetryable()).toBe(true);
@@ -215,7 +221,7 @@ describe('NetworkError', () => {
       const error400 = new NetworkError('bad request', 400);
       const error401 = new NetworkError('unauthorized', 401);
       const error404 = new NetworkError('not found', 404);
-      
+
       expect(error400.isRetryable()).toBe(false);
       expect(error401.isRetryable()).toBe(false);
       expect(error404.isRetryable()).toBe(false);
@@ -226,20 +232,20 @@ describe('NetworkError', () => {
     it('should serialize with all properties', () => {
       const error = new NetworkError('test', 500, 'req-123');
       const json = error.toJSON();
-      
+
       expect(json).toMatchObject({
         name: 'NetworkError',
         message: 'test',
         statusCode: 500,
         requestId: 'req-123',
-        retryable: true
+        retryable: true,
       });
     });
 
     it('should exclude undefined properties', () => {
       const error = new NetworkError('test');
       const json = error.toJSON();
-      
+
       expect(json).not.toHaveProperty('statusCode');
       expect(json).not.toHaveProperty('requestId');
       expect(json.retryable).toBe(true);
@@ -252,7 +258,7 @@ describe('GraphQLError', () => {
     it('should create a GraphQL error with message only', () => {
       const message = 'GraphQL validation error';
       const error = new GraphQLError(message);
-      
+
       expect(error.message).toBe(message);
       expect(error.name).toBe('GraphQLError');
       expect(error.code).toBeUndefined();
@@ -264,7 +270,7 @@ describe('GraphQLError', () => {
       const message = 'Field error';
       const path: GraphQLErrorPath = ['user', 'profile', 'email'];
       const error = new GraphQLError(message, path);
-      
+
       expect(error.message).toBe(message);
       expect(error.path).toEqual(path);
     });
@@ -274,10 +280,10 @@ describe('GraphQLError', () => {
       const extensions: GraphQLErrorExtensions = {
         code: 'VALIDATION_ERROR',
         field: 'email',
-        constraint: 'required'
+        constraint: 'required',
       };
       const error = new GraphQLError(message, undefined, extensions);
-      
+
       expect(error.message).toBe(message);
       expect(error.code).toBe('VALIDATION_ERROR');
       expect(error.extensions).toEqual(extensions);
@@ -288,11 +294,11 @@ describe('GraphQLError', () => {
       const path: GraphQLErrorPath = ['user', 0, 'email'];
       const extensions: GraphQLErrorExtensions = {
         code: 'AUTHORIZATION_ERROR',
-        permission: 'READ_USER'
+        permission: 'READ_USER',
       };
       const cause = new Error('underlying auth error');
       const error = new GraphQLError(message, path, extensions, cause);
-      
+
       expect(error.message).toBe(message);
       expect(error.path).toEqual(path);
       expect(error.code).toBe('AUTHORIZATION_ERROR');
@@ -323,24 +329,24 @@ describe('GraphQLError', () => {
       const path: GraphQLErrorPath = ['user', 'profile'];
       const extensions: GraphQLErrorExtensions = {
         code: 'VALIDATION_ERROR',
-        field: 'email'
+        field: 'email',
       };
       const error = new GraphQLError('test', path, extensions);
       const json = error.toJSON();
-      
+
       expect(json).toMatchObject({
         name: 'GraphQLError',
         message: 'test',
         code: 'VALIDATION_ERROR',
         path: path,
-        extensions: extensions
+        extensions: extensions,
       });
     });
 
     it('should exclude undefined properties', () => {
       const error = new GraphQLError('test');
       const json = error.toJSON();
-      
+
       expect(json).not.toHaveProperty('code');
       expect(json).not.toHaveProperty('path');
       expect(json).not.toHaveProperty('extensions');
@@ -353,7 +359,7 @@ describe('GraphQLError', () => {
       const extensions: GraphQLErrorExtensions = { code: 'VALIDATION_ERROR' };
       const error = new GraphQLError('Invalid email', path, extensions);
       const string = error.toString();
-      
+
       expect(string).toContain('GraphQLError: Invalid email');
       expect(string).toContain('at path: user.email');
       expect(string).toContain('(code: VALIDATION_ERROR)');
@@ -362,7 +368,7 @@ describe('GraphQLError', () => {
     it('should format error without path or code', () => {
       const error = new GraphQLError('Generic error');
       const string = error.toString();
-      
+
       expect(string).toContain('GraphQLError: Generic error');
       expect(string).not.toContain('at path:');
       expect(string).not.toContain('(code:');
@@ -372,7 +378,7 @@ describe('GraphQLError', () => {
       const path: GraphQLErrorPath = ['users', 0, 'email'];
       const error = new GraphQLError('Invalid email', path);
       const string = error.toString();
-      
+
       expect(string).toContain('at path: users.0.email');
     });
   });

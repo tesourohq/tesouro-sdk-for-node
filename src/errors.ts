@@ -1,6 +1,6 @@
 /**
  * Base error class for the Tesouro SDK
- * 
+ *
  * Provides a foundation for all SDK errors with consistent structure,
  * proper prototype chain handling, and serialization support.
  */
@@ -22,28 +22,28 @@ export class SdkError extends Error {
    */
   constructor(message: string, cause?: unknown) {
     super(message);
-    
+
     // Set the error name to the class name
     this.name = this.constructor.name;
-    
+
     // Ensure proper prototype chain for instanceof checks
     Object.setPrototypeOf(this, new.target.prototype);
-    
+
     // Capture timestamp
     this.timestamp = new Date();
-    
+
     // Preserve stack trace (V8 specific)
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, this.constructor);
     }
-    
-    // Store the cause if provided  
+
+    // Store the cause if provided
     if (cause !== undefined) {
       Object.defineProperty(this, 'cause', {
         value: cause,
         writable: false,
         enumerable: false,
-        configurable: false
+        configurable: false,
       });
     }
   }
@@ -57,13 +57,13 @@ export class SdkError extends Error {
       name: this.name,
       message: this.message,
       timestamp: this.timestamp.toISOString(),
-      stack: this.stack
+      stack: this.stack,
     };
-    
+
     if (this.cause !== undefined) {
       result.cause = this.cause;
     }
-    
+
     return result;
   }
 
@@ -78,7 +78,7 @@ export class SdkError extends Error {
 
 /**
  * Error class for network-related issues
- * 
+ *
  * Represents errors that occur during HTTP requests, including
  * timeouts, connection failures, and HTTP status errors.
  */
@@ -100,26 +100,21 @@ export class NetworkError extends SdkError {
    * @param requestId - Optional request ID for tracing
    * @param cause - Optional underlying cause of the error
    */
-  constructor(
-    message: string,
-    statusCode?: number,
-    requestId?: string,
-    cause?: unknown
-  ) {
+  constructor(message: string, statusCode?: number, requestId?: string, cause?: unknown) {
     super(message, cause);
-    
+
     Object.defineProperty(this, 'statusCode', {
       value: statusCode,
       writable: false,
       enumerable: false,
-      configurable: false
+      configurable: false,
     });
-    
+
     Object.defineProperty(this, 'requestId', {
       value: requestId,
       writable: false,
       enumerable: false,
-      configurable: false
+      configurable: false,
     });
   }
 
@@ -132,11 +127,13 @@ export class NetworkError extends SdkError {
       // Network errors without status codes (timeouts, connection failures) might be retryable
       return true;
     }
-    
+
     // Retry on server errors (5xx) and some client errors
-    return this.statusCode >= 500 || 
-           this.statusCode === 408 || // Request Timeout
-           this.statusCode === 429;   // Too Many Requests
+    return (
+      this.statusCode >= 500 ||
+      this.statusCode === 408 || // Request Timeout
+      this.statusCode === 429
+    ); // Too Many Requests
   }
 
   /**
@@ -145,17 +142,17 @@ export class NetworkError extends SdkError {
    */
   toJSON(): Record<string, any> {
     const result = super.toJSON();
-    
+
     if (this.statusCode !== undefined) {
       result.statusCode = this.statusCode;
     }
-    
+
     if (this.requestId !== undefined) {
       result.requestId = this.requestId;
     }
-    
+
     result.retryable = this.isRetryable();
-    
+
     return result;
   }
 }
@@ -175,7 +172,7 @@ export interface GraphQLErrorExtensions {
 
 /**
  * Error class for GraphQL-specific issues
- * 
+ *
  * Represents errors returned by the GraphQL server, including
  * validation errors, execution errors, and custom business logic errors.
  */
@@ -209,26 +206,26 @@ export class GraphQLError extends SdkError {
     cause?: unknown
   ) {
     super(message, cause);
-    
+
     Object.defineProperty(this, 'code', {
       value: extensions?.code,
       writable: false,
       enumerable: false,
-      configurable: false
+      configurable: false,
     });
-    
+
     Object.defineProperty(this, 'path', {
       value: path,
       writable: false,
       enumerable: false,
-      configurable: false
+      configurable: false,
     });
-    
+
     Object.defineProperty(this, 'extensions', {
       value: extensions,
       writable: false,
       enumerable: false,
-      configurable: false
+      configurable: false,
     });
   }
 
@@ -238,19 +235,19 @@ export class GraphQLError extends SdkError {
    */
   toJSON(): Record<string, any> {
     const result = super.toJSON();
-    
+
     if (this.code !== undefined) {
       result.code = this.code;
     }
-    
+
     if (this.path !== undefined) {
       result.path = this.path;
     }
-    
+
     if (this.extensions !== undefined) {
       result.extensions = this.extensions;
     }
-    
+
     return result;
   }
 

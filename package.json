@@ -20,7 +20,12 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "format": "prettier --write src/**/*.ts",
+    "format:check": "prettier --check src/**/*.ts",
     "clean": "rm -rf dist",
+    "prepare": "husky",
     "prepublishOnly": "npm run clean && npm run build && npm test"
   },
   "engines": {
@@ -39,7 +44,13 @@
   "devDependencies": {
     "@types/jest": "^29.5.14",
     "@types/node": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.33.1",
+    "@typescript-eslint/parser": "^8.33.1",
+    "eslint": "^9.28.0",
+    "husky": "^9.1.7",
     "jest": "^29.7.0",
+    "lint-staged": "^16.1.0",
+    "prettier": "^3.5.3",
     "ts-jest": "^29.3.4",
     "typescript": "^5.0.0"
   },
@@ -47,5 +58,12 @@
     "dist/",
     "README.md",
     "CHANGELOG.md"
-  ]
+  ],
+  "lint-staged": {
+    "src/**/*.ts": [
+      "prettier --write",
+      "eslint --fix",
+      "jest --bail --findRelatedTests --passWithNoTests"
+    ]
+  }
 }

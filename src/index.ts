@@ -1,17 +1,32 @@
 /**
  * Tesouro SDK for Node.js
- * 
+ *
  * A TypeScript-first GraphQL SDK with OpenID Connect authentication
  */
 
 // Export errors
-export { 
-  SdkError, 
-  NetworkError, 
+export {
+  SdkError,
+  NetworkError,
   GraphQLError,
   type GraphQLErrorPath,
-  type GraphQLErrorExtensions 
+  type GraphQLErrorExtensions,
 } from './errors';
+
+// Export authentication
+export { AuthManager, type ClientCredentials } from './auth';
+
+// Export types and configuration
+export {
+  type ClientConfig,
+  type AuthConfig,
+  type RequestConfig,
+  DEFAULT_CONFIG,
+  validateClientConfig,
+  validateRequestConfig,
+  applyConfigDefaults,
+  deriveTokenEndpoint,
+} from './types';
 
 /**
  * Simple hello world function for initial setup verification
