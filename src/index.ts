@@ -53,6 +53,9 @@ export {
   type GraphQLRequestBody,
 } from './graphql';
 
+// Export client
+export { ApiClient, createClient, type ApiClientConfig, type ClientRequestOptions } from './client';
+
 /**
  * Simple hello world function for initial setup verification
  * @returns A greeting message
