@@ -9,6 +9,7 @@ export {
   SdkError,
   NetworkError,
   GraphQLError,
+  ResponseError,
   type GraphQLErrorPath,
   type GraphQLErrorExtensions,
 } from './errors';
@@ -27,6 +28,17 @@ export {
   applyConfigDefaults,
   deriveTokenEndpoint,
 } from './types';
+
+// Export request utilities
+export {
+  makeRequest,
+  get,
+  post,
+  mergeHeaders,
+  DEFAULT_TIMEOUT,
+  type RequestOptions,
+  type HttpResponse,
+} from './request';
 
 /**
  * Simple hello world function for initial setup verification

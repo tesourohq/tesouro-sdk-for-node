@@ -262,3 +262,85 @@ export class GraphQLError extends SdkError {
     return `${base}${pathStr}${codeStr}`;
   }
 }
+
+/**
+ * Error class for response parsing issues
+ *
+ * Represents errors that occur when parsing response data,
+ * such as invalid JSON or unexpected response formats.
+ */
+export class ResponseError extends SdkError {
+  /**
+   * HTTP status code of the response
+   */
+  public readonly statusCode!: number;
+
+  /**
+   * Content type of the response
+   */
+  public readonly contentType?: string;
+
+  /**
+   * Request ID for tracing (if available)
+   */
+  public readonly requestId?: string;
+
+  /**
+   * Creates a new ResponseError instance
+   * @param message - The error message
+   * @param statusCode - HTTP status code of the response
+   * @param contentType - Content type of the response
+   * @param requestId - Optional request ID for tracing
+   * @param cause - Optional underlying cause of the error
+   */
+  constructor(
+    message: string,
+    statusCode: number,
+    contentType?: string,
+    requestId?: string,
+    cause?: unknown
+  ) {
+    super(message, cause);
+
+    Object.defineProperty(this, 'statusCode', {
+      value: statusCode,
+      writable: false,
+      enumerable: false,
+      configurable: false,
+    });
+
+    Object.defineProperty(this, 'contentType', {
+      value: contentType,
+      writable: false,
+      enumerable: false,
+      configurable: false,
+    });
+
+    Object.defineProperty(this, 'requestId', {
+      value: requestId,
+      writable: false,
+      enumerable: false,
+      configurable: false,
+    });
+  }
+
+  /**
+   * Converts the error to a JSON-serializable object
+   * @returns A plain object representation of the error
+   */
+  toJSON(): Record<string, any> {
+    const result = super.toJSON();
+
+    result.statusCode = this.statusCode;
+
+    if (this.contentType !== undefined) {
+      result.contentType = this.contentType;
+    }
+
+    if (this.requestId !== undefined) {
+      result.requestId = this.requestId;
+    }
+
+    return result;
+  }
+}

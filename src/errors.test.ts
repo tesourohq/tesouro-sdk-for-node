@@ -2,6 +2,7 @@ import {
   SdkError,
   NetworkError,
   GraphQLError,
+  ResponseError,
   GraphQLErrorPath,
   GraphQLErrorExtensions,
 } from './errors';
@@ -380,6 +381,79 @@ describe('GraphQLError', () => {
       const string = error.toString();
 
       expect(string).toContain('at path: users.0.email');
+    });
+  });
+});
+
+describe('ResponseError', () => {
+  describe('constructor', () => {
+    it('should create a response error with status code', () => {
+      const message = 'Invalid JSON response';
+      const statusCode = 200;
+      const error = new ResponseError(message, statusCode);
+
+      expect(error.message).toBe(message);
+      expect(error.name).toBe('ResponseError');
+      expect(error.statusCode).toBe(statusCode);
+      expect(error.contentType).toBeUndefined();
+      expect(error.requestId).toBeUndefined();
+    });
+
+    it('should create a response error with all parameters', () => {
+      const message = 'Failed to parse response';
+      const statusCode = 200;
+      const contentType = 'application/json; charset=utf-8';
+      const requestId = 'req-789';
+      const cause = new Error('JSON syntax error');
+
+      const error = new ResponseError(message, statusCode, contentType, requestId, cause);
+
+      expect(error.message).toBe(message);
+      expect(error.statusCode).toBe(statusCode);
+      expect(error.contentType).toBe(contentType);
+      expect(error.requestId).toBe(requestId);
+      expect(error.cause).toBe(cause);
+    });
+  });
+
+  describe('inheritance', () => {
+    it('should be instanceof ResponseError', () => {
+      const error = new ResponseError('test', 200);
+      expect(error instanceof ResponseError).toBe(true);
+    });
+
+    it('should be instanceof SdkError', () => {
+      const error = new ResponseError('test', 200);
+      expect(error instanceof SdkError).toBe(true);
+    });
+
+    it('should be instanceof Error', () => {
+      const error = new ResponseError('test', 200);
+      expect(error instanceof Error).toBe(true);
+    });
+  });
+
+  describe('serialization', () => {
+    it('should serialize with all properties', () => {
+      const error = new ResponseError('Parse error', 200, 'application/json', 'req-123');
+      const json = error.toJSON();
+
+      expect(json).toMatchObject({
+        name: 'ResponseError',
+        message: 'Parse error',
+        statusCode: 200,
+        contentType: 'application/json',
+        requestId: 'req-123',
+      });
+    });
+
+    it('should exclude undefined properties', () => {
+      const error = new ResponseError('Parse error', 500);
+      const json = error.toJSON();
+
+      expect(json.statusCode).toBe(500);
+      expect(json).not.toHaveProperty('contentType');
+      expect(json).not.toHaveProperty('requestId');
     });
   });
 });
