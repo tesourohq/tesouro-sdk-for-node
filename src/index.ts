@@ -40,6 +40,19 @@ export {
   type HttpResponse,
 } from './request';
 
+// Export GraphQL utilities
+export {
+  makeGraphQLRequest,
+  formatGraphQLQuery,
+  isValidGraphQLQuery,
+  safeStringifyVariables,
+  type GraphQLVariables,
+  type GraphQLResponse,
+  type GraphQLRequestOptions,
+  type GraphQLResult,
+  type GraphQLRequestBody,
+} from './graphql';
+
 /**
  * Simple hello world function for initial setup verification
  * @returns A greeting message
