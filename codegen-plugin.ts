@@ -267,26 +267,28 @@ function generateMethodCode(
     ? `variables: ${operation.variablesType},`
     : '';
     
-  const methodSignature = `
-  async ${methodName}(
-    ${variablesParam}${operation.hasVariables ? '\n    ' : ''}options: Omit<ClientRequestOptions, 'variables'> = {}
-  ): Promise<GraphQLResult<{ ${operation.name}: ${operation.resultType} }>>`;
-
   // Generate method body
   const methodCall = operation.type === 'query' ? 'query' : 'mutate';
   const variablesArg = operation.hasVariables ? 'variables' : 'undefined';
   
-  const methodBody = `
-  {
-    const ${operation.type}String = \`${operation.operationString}\`;
+  // Try putting the entire method signature on one line with explicit brace positioning
+  const params = operation.hasVariables 
+    ? `${variablesParam} options: Omit<ClientRequestOptions, 'variables'> = {}`
+    : `options: Omit<ClientRequestOptions, 'variables'> = {}`;
     
-    return this.${methodCall}<
-      { ${operation.name}: ${operation.resultType} },
-      ${operation.hasVariables ? operation.variablesType : 'never'}
-    >(${operation.type}String, ${variablesArg}, options);
-  }`;
+  let methodLines = [];
+  methodLines.push(`  async ${methodName}(${params}): Promise<GraphQLResult<{ ${operation.name}: ${operation.resultType} }>> {`);
+  methodLines.push(`    const ${operation.type}String = \`${operation.operationString}\`;`);
+  methodLines.push(`    `);
+  methodLines.push(`    return this.${methodCall}<`);
+  methodLines.push(`      { ${operation.name}: ${operation.resultType} },`);
+  methodLines.push(`      ${operation.hasVariables ? operation.variablesType : 'never'}`);
+  methodLines.push(`    >(${operation.type}String, ${variablesArg}, options);`);
+  methodLines.push(`  }`);
+  
+  const methodSignatureAndBody = methodLines.join('\n');
 
-  return `${jsdoc}${methodSignature}${methodBody}`;
+  return `${jsdoc}\n${methodSignatureAndBody}`;
 }
 
 /**

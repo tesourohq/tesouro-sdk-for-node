@@ -1,5 +1,5 @@
 overwrite: true
-schema: "./sample-schema.graphql"
+schema: "./schema.graphql"
 generates:
   src/generated/types.ts:
     plugins:
@@ -8,7 +8,31 @@ generates:
       # Scalar type mappings
       scalars:
         DateTime: Date
-        JSON: Record<string, any>
+        Date: Date
+        ZonedDateTime: Date
+        LocalTime: string
+        TimeSpan: string
+        UUID: string
+        Decimal: number
+        DecimalAmount: number
+        DecimalAmount6: number
+        Long: number
+        Email: string
+        URL: string
+        Percentage: number
+        CardNumber: string
+        Max36Text: string
+        Max100Text: string
+        Max50Text: string
+        Max15Text: string
+        NumericMonth: number
+        NumericYear2Digits: number
+        NumericYear4Digits: number
+        Exact4Digits: string
+        Max2Digits: string
+        CurrencyCodeAlpha: string
+        FieldSet: string
+        openfed__Scope: string
       
       # Naming conventions
       typesPrefix: ""

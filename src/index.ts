@@ -56,6 +56,10 @@ export {
 // Export client
 export { ApiClient, createClient, type ApiClientConfig, type ClientRequestOptions } from './client';
 
+// Export generated client and types
+export { GeneratedApiClient } from './generated/client-methods';
+export type * from './generated/types';
+
 /**
  * Simple hello world function for initial setup verification
  * @returns A greeting message

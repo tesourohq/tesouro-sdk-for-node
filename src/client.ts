@@ -12,13 +12,7 @@ import { type ClientConfig, validateClientConfig, applyConfigDefaults } from './
 // Re-export types that generated code needs
 export type { GraphQLResult } from './graphql';
 import { SdkError, NetworkError } from './errors';
-import type {
-  User,
-  Transaction,
-  QueryGetUserArgs,
-  QueryGetTransactionArgs,
-  MutationCreateUserArgs,
-} from './generated/types';
+// Note: Real schema types will be imported as needed
 
 /**
  * Configuration options for initializing the API client
@@ -202,104 +196,7 @@ export class ApiClient {
     return this.request<TResult, TVariables>(mutation, variables, options);
   }
 
-  /**
-   * Gets a user by their ID
-   *
-   * @param variables - Query variables including user ID
-   * @param options - Additional request options
-   * @returns Promise resolving to user data
-   * @example
-   * ```typescript
-   * const user = await client.getUser({ id: '123' });
-   * console.log(user.data?.name);
-   * ```
-   */
-  async getUser(
-    variables: QueryGetUserArgs,
-    options: Omit<ClientRequestOptions, 'variables'> = {}
-  ): Promise<GraphQLResult<{ getUser: User | null }>> {
-    const query = `
-      query GetUser($id: ID!) {
-        getUser(id: $id) {
-          id
-          email
-          name
-          createdAt
-          transactions {
-            id
-            amount
-            currency
-            status
-            createdAt
-          }
-        }
-      }
-    `;
-
-    return this.query<{ getUser: User | null }, QueryGetUserArgs>(query, variables, options);
-  }
-
-  /**
-   * Gets a transaction by its ID
-   *
-   * @param variables - Query variables including transaction ID
-   * @param options - Additional request options
-   * @returns Promise resolving to transaction data
-   */
-  async getTransaction(
-    variables: QueryGetTransactionArgs,
-    options: Omit<ClientRequestOptions, 'variables'> = {}
-  ): Promise<GraphQLResult<{ getTransaction: Transaction | null }>> {
-    const query = `
-      query GetTransaction($id: ID!) {
-        getTransaction(id: $id) {
-          id
-          amount
-          currency
-          status
-          createdAt
-          updatedAt
-          metadata
-          user {
-            id
-            email
-            name
-          }
-        }
-      }
-    `;
-
-    return this.query<{ getTransaction: Transaction | null }, QueryGetTransactionArgs>(
-      query,
-      variables,
-      options
-    );
-  }
-
-  /**
-   * Creates a new user
-   *
-   * @param variables - Mutation variables including user input
-   * @param options - Additional request options
-   * @returns Promise resolving to created user data
-   */
-  async createUser(
-    variables: MutationCreateUserArgs,
-    options: Omit<ClientRequestOptions, 'variables'> = {}
-  ): Promise<GraphQLResult<{ createUser: User }>> {
-    const mutation = `
-      mutation CreateUser($input: CreateUserInput!) {
-        createUser(input: $input) {
-          id
-          email
-          name
-          createdAt
-        }
-      }
-    `;
-
-    return this.mutate<{ createUser: User }, MutationCreateUserArgs>(mutation, variables, options);
-  }
+  // Generated methods will extend this class via GeneratedApiClient
 
   /**
    * Sets a new access token

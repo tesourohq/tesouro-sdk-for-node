@@ -17,7 +17,7 @@
     "build:cjs": "tsc -p tsconfig.cjs.json",
     "build:esm": "tsc -p tsconfig.esm.json",
     "build:types": "tsc -p tsconfig.types.json",
-    "codegen": "graphql-codegen --config codegen.yml",
+    "codegen": "graphql-codegen --config codegen.yml && eslint src/generated/ --fix",
     "codegen:watch": "graphql-codegen --config codegen.yml --watch",
     "test": "jest",
     "test:watch": "jest --watch",
