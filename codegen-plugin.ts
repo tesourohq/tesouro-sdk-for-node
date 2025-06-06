@@ -120,15 +120,16 @@ function createOperationInfo(
   field: GraphQLField<any, any>,
   operationType: 'query' | 'mutation' | 'subscription'
 ): OperationInfo {
-  // Generate the operation string (this is a simplified version)
+  // Generate the operation string
   const operationString = generateOperationString(fieldName, field, operationType);
   
-  // Generate TypeScript type names
+  // Generate TypeScript type names following GraphQL codegen conventions
   const capitalizedFieldName = capitalize(fieldName);
   const operationTypeName = capitalize(operationType);
   
+  // Use the same naming convention as GraphQL codegen
   const variablesType = `${operationTypeName}${capitalizedFieldName}Args`;
-  const resultType = field.type.toString(); // Simplified - would need proper type mapping
+  const resultType = extractResultTypeName(field.type.toString());
   
   const hasVariables = field.args && field.args.length > 0;
 
@@ -137,7 +138,7 @@ function createOperationInfo(
     type: operationType,
     operationString,
     variablesType: hasVariables ? variablesType : 'never',
-    resultType: extractResultTypeName(resultType),
+    resultType,
     description: field.description,
     hasVariables,
   };
@@ -154,25 +155,44 @@ function generateOperationString(
   const capitalizedFieldName = capitalize(fieldName);
   const operationTypeName = capitalize(operationType);
   
-  // Build arguments string
+  // Build arguments string for operation definition
   const args = field.args || [];
   const argsString = args.length > 0 
     ? `(${args.map(arg => `$${arg.name}: ${arg.type}`).join(', ')})`
     : '';
   
-  // Build field call
+  // Build field call with arguments
   const fieldCall = args.length > 0
     ? `${fieldName}(${args.map(arg => `${arg.name}: $${arg.name}`).join(', ')})`
     : fieldName;
 
+  // Generate field selection based on return type
+  const fieldSelection = generateFieldSelection(field);
+
   return `
     ${operationType} ${operationTypeName}${capitalizedFieldName}${argsString} {
-      ${fieldCall} {
-        # TODO: Add field selection based on return type
-        __typename
-      }
+      ${fieldCall}${fieldSelection ? ` {\n        ${fieldSelection}\n      }` : ''}
     }
   `.trim();
+}
+
+/**
+ * Generates field selection for a GraphQL field based on its return type
+ */
+function generateFieldSelection(field: GraphQLField<any, any>): string {
+  // For now, generate a basic selection set
+  // In a real implementation, you'd recursively build the selection based on the type
+  const returnType = field.type;
+  
+  // Check if this is an object type that needs field selection
+  if (isObjectType(returnType) || (returnType.toString().includes('!') && returnType.toString().includes('['))) {
+    // For object types, we need some basic fields
+    // This is a simplified approach - real implementation would introspect the type
+    return '__typename\n        id';
+  }
+  
+  // For scalar types, no selection needed
+  return '';
 }
 
 /**
@@ -253,18 +273,17 @@ function generateMethodCode(
   ): Promise<GraphQLResult<{ ${operation.name}: ${operation.resultType} }>>`;
 
   // Generate method body
-  const operationVar = operation.type === 'subscription' ? 'subscription' : (operation.type === 'query' ? 'query' : 'mutation');
-  const methodCall = operation.type === 'subscription' ? 'mutate' : (operation.type === 'query' ? 'query' : 'mutate');
-  const typeArg = operation.hasVariables ? operation.variablesType : 'never';
+  const methodCall = operation.type === 'query' ? 'query' : 'mutate';
+  const variablesArg = operation.hasVariables ? 'variables' : 'undefined';
   
   const methodBody = `
   {
-    const ${operationVar} = \`${operation.operationString}\`;
+    const ${operation.type}String = \`${operation.operationString}\`;
     
     return this.${methodCall}<
       { ${operation.name}: ${operation.resultType} },
-      ${typeArg}
-    >(${operationVar}, ${operation.hasVariables ? 'variables' : 'undefined'}, options);
+      ${operation.hasVariables ? operation.variablesType : 'never'}
+    >(${operation.type}String, ${variablesArg}, options);
   }`;
 
   return `${jsdoc}${methodSignature}${methodBody}`;
@@ -298,9 +317,21 @@ function capitalize(str: string): string {
  * Extract the result type name from a GraphQL type string
  */
 function extractResultTypeName(typeString: string): string {
-  // This is a simplified implementation
-  // In a real implementation, you'd properly parse the GraphQL type
-  return typeString.replace(/[![\]]/g, '');
+  // Remove GraphQL type modifiers (!, [, ])
+  let cleanType = typeString.replace(/[![\]]/g, '');
+  
+  // Handle common scalar types
+  const scalarMap: Record<string, string> = {
+    'String': 'string',
+    'Int': 'number',
+    'Float': 'number',
+    'Boolean': 'boolean',
+    'ID': 'string',
+    'DateTime': 'Date',
+    'JSON': 'Record<string, any>',
+  };
+  
+  return scalarMap[cleanType] || cleanType;
 }
 
 export default { plugin };
