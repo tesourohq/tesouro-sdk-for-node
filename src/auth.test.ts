@@ -1,4 +1,24 @@
 import { AuthManager, ClientCredentials } from './auth';
+import { NetworkError } from './errors';
+import { post } from './request';
+
+// Mock the request module
+jest.mock('./request', () => ({
+  post: jest.fn(),
+}));
+
+const mockPost = post as jest.MockedFunction<typeof post>;
+
+// Helper function to create mock HTTP responses
+function createMockResponse<T>(data: T, status = 200, statusText = 'OK') {
+  return {
+    status,
+    statusText,
+    headers: new Headers(),
+    data,
+    response: new Response(),
+  };
+}
 
 describe('AuthManager', () => {
   const mockCredentials: ClientCredentials = {
@@ -10,6 +30,7 @@ describe('AuthManager', () => {
 
   beforeEach(() => {
     authManager = new AuthManager(mockCredentials);
+    mockPost.mockClear();
   });
 
   describe('constructor', () => {
@@ -205,6 +226,179 @@ describe('AuthManager', () => {
 
       const currentCredentials = authManager.getCredentials();
       expect(currentCredentials.clientSecret).toBe(mockCredentials.clientSecret);
+    });
+  });
+
+  describe('token endpoint management', () => {
+    it('should set and get token endpoint', () => {
+      const endpoint = 'https://auth.example.com/oauth/token';
+      authManager.setTokenEndpoint(endpoint);
+      expect(authManager.getTokenEndpoint()).toBe(endpoint);
+    });
+
+    it('should accept token endpoint in constructor', () => {
+      const endpoint = 'https://auth.example.com/oauth/token';
+      const managerWithEndpoint = new AuthManager(mockCredentials, endpoint);
+      expect(managerWithEndpoint.getTokenEndpoint()).toBe(endpoint);
+    });
+  });
+
+  describe('OAuth token refresh', () => {
+    const tokenEndpoint = 'https://auth.example.com/oauth/token';
+    const mockTokenResponse = {
+      access_token: 'new-access-token',
+      token_type: 'Bearer',
+      expires_in: 3600,
+      scope: 'read write',
+    };
+
+    beforeEach(() => {
+      authManager.setTokenEndpoint(tokenEndpoint);
+    });
+
+    it('should successfully refresh token', async () => {
+      mockPost.mockResolvedValueOnce(createMockResponse(mockTokenResponse));
+
+      await authManager.refreshToken();
+
+      expect(mockPost).toHaveBeenCalledWith(
+        tokenEndpoint,
+        'grant_type=client_credentials&client_id=test-client-id&client_secret=test-client-secret',
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Accept: 'application/json',
+          },
+          timeout: 10000,
+        }
+      );
+
+      expect(authManager.isTokenValid()).toBe(true);
+      expect(authManager.getToken()).toBe('new-access-token');
+    });
+
+    it('should refresh token with custom endpoint parameter', async () => {
+      const customEndpoint = 'https://custom.auth.com/token';
+      mockPost.mockResolvedValueOnce(createMockResponse(mockTokenResponse));
+
+      await authManager.refreshToken(customEndpoint);
+
+      expect(mockPost).toHaveBeenCalledWith(customEndpoint, expect.any(String), expect.any(Object));
+    });
+
+    it('should throw error when no token endpoint configured', async () => {
+      const managerWithoutEndpoint = new AuthManager(mockCredentials);
+
+      await expect(managerWithoutEndpoint.refreshToken()).rejects.toThrow(
+        'Token endpoint not configured'
+      );
+    });
+
+    it('should handle invalid token response format', async () => {
+      mockPost.mockResolvedValueOnce(createMockResponse('invalid response'));
+
+      await expect(authManager.refreshToken()).rejects.toThrow(
+        'Invalid token response: expected JSON object'
+      );
+      expect(authManager.getToken()).toBeNull();
+    });
+
+    it('should handle missing access_token in response', async () => {
+      mockPost.mockResolvedValueOnce(
+        createMockResponse({
+          token_type: 'Bearer',
+          expires_in: 3600,
+        })
+      );
+
+      await expect(authManager.refreshToken()).rejects.toThrow(
+        'Invalid token response: missing access_token'
+      );
+      expect(authManager.getToken()).toBeNull();
+    });
+
+    it('should handle missing expires_in in response', async () => {
+      mockPost.mockResolvedValueOnce(
+        createMockResponse({
+          access_token: 'test-token',
+          token_type: 'Bearer',
+        })
+      );
+
+      await expect(authManager.refreshToken()).rejects.toThrow(
+        'Invalid token response: missing or invalid expires_in'
+      );
+      expect(authManager.getToken()).toBeNull();
+    });
+
+    it('should handle network errors', async () => {
+      const networkError = new NetworkError('Connection failed');
+      mockPost.mockRejectedValueOnce(networkError);
+
+      await expect(authManager.refreshToken()).rejects.toThrow(
+        'Failed to refresh access token: Connection failed'
+      );
+      expect(authManager.getToken()).toBeNull();
+    });
+
+    it('should handle unexpected errors', async () => {
+      const unexpectedError = new Error('Something went wrong');
+      mockPost.mockRejectedValueOnce(unexpectedError);
+
+      await expect(authManager.refreshToken()).rejects.toThrow(
+        'Unexpected error during token refresh'
+      );
+      expect(authManager.getToken()).toBeNull();
+    });
+
+    it('should prevent concurrent refresh attempts', async () => {
+      let resolveFirst: (value: any) => void;
+      const firstPromise = new Promise<ReturnType<typeof createMockResponse>>((resolve) => {
+        resolveFirst = resolve;
+      });
+
+      mockPost.mockImplementationOnce(() => firstPromise);
+
+      // Start two refresh attempts simultaneously
+      const promise1 = authManager.refreshToken();
+      const promise2 = authManager.refreshToken();
+
+      // Resolve the first request
+      resolveFirst!(createMockResponse(mockTokenResponse));
+
+      // Both promises should resolve to the same result
+      await Promise.all([promise1, promise2]);
+
+      // post should only have been called once
+      expect(mockPost).toHaveBeenCalledTimes(1);
+    });
+
+    it('should clear existing token on refresh failure', async () => {
+      // Set an existing token
+      authManager.setToken('existing-token', 3600);
+      expect(authManager.getToken()).toBe('existing-token');
+
+      // Mock a failed refresh
+      mockPost.mockRejectedValueOnce(new Error('Refresh failed'));
+
+      // Attempt refresh
+      await expect(authManager.refreshToken()).rejects.toThrow();
+
+      // Token should be cleared
+      expect(authManager.getToken()).toBeNull();
+    });
+
+    it('should use custom token type from response', async () => {
+      const customTokenResponse = {
+        ...mockTokenResponse,
+        token_type: 'Custom',
+      };
+
+      mockPost.mockResolvedValueOnce(createMockResponse(customTokenResponse));
+
+      await authManager.refreshToken();
+
+      expect(authManager.getAuthorizationHeader()).toBe('Custom new-access-token');
     });
   });
 });

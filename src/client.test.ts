@@ -25,6 +25,7 @@ describe('ApiClient', () => {
     isTokenValid: jest.fn(),
     shouldRefreshToken: jest.fn(),
     getAuthorizationHeader: jest.fn(),
+    refreshToken: jest.fn(),
   };
 
   beforeEach(() => {
@@ -36,10 +37,13 @@ describe('ApiClient', () => {
     it('should create client with valid configuration', () => {
       const client = new ApiClient(baseConfig);
       expect(client).toBeInstanceOf(ApiClient);
-      expect(MockAuthManager).toHaveBeenCalledWith({
-        clientId: 'test-client-id',
-        clientSecret: 'test-client-secret',
-      });
+      expect(MockAuthManager).toHaveBeenCalledWith(
+        {
+          clientId: 'test-client-id',
+          clientSecret: 'test-client-secret',
+        },
+        'https://api.example.com/oauth/token'
+      );
     });
 
     it('should apply configuration defaults', () => {
@@ -343,9 +347,21 @@ describe('ApiClient', () => {
       client = new ApiClient(baseConfig);
     });
 
-    it('should throw error indicating OAuth implementation needed', async () => {
+    it('should call auth manager refresh token', async () => {
+      const mockRefreshToken = jest.fn().mockResolvedValue(undefined);
+      mockAuthManager.refreshToken = mockRefreshToken;
+
+      await client.refreshToken();
+
+      expect(mockRefreshToken).toHaveBeenCalled();
+    });
+
+    it('should handle auth manager errors', async () => {
+      const mockRefreshToken = jest.fn().mockRejectedValue(new Error('Network error'));
+      mockAuthManager.refreshToken = mockRefreshToken;
+
       await expect(client.refreshToken()).rejects.toThrow(SdkError);
-      await expect(client.refreshToken()).rejects.toThrow('Token refresh not yet implemented');
+      await expect(client.refreshToken()).rejects.toThrow('Failed to refresh access token');
     });
   });
 

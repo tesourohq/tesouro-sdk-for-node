@@ -4,12 +4,25 @@
  * Handles token storage, validation, and refresh logic for the SDK
  */
 
+import { post } from './request';
+import { SdkError, NetworkError } from './errors';
+
 /**
  * Client credentials for OAuth authentication
  */
 export interface ClientCredentials {
   clientId: string;
   clientSecret: string;
+}
+
+/**
+ * OAuth token response structure
+ */
+interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  scope?: string;
 }
 
 /**
@@ -30,13 +43,17 @@ interface TokenInfo {
 export class AuthManager {
   private token: TokenInfo | null = null;
   private readonly credentials: ClientCredentials;
+  private tokenEndpoint: string | null = null;
+  private refreshPromise: Promise<void> | null = null;
 
   /**
    * Creates a new AuthManager instance
    * @param credentials - Client credentials for authentication
+   * @param tokenEndpoint - Optional token endpoint URL
    */
-  constructor(credentials: ClientCredentials) {
+  constructor(credentials: ClientCredentials, tokenEndpoint?: string) {
     this.credentials = { ...credentials };
+    this.tokenEndpoint = tokenEndpoint || null;
   }
 
   /**
@@ -185,5 +202,108 @@ export class AuthManager {
 
     const tokenType = this.token?.tokenType || 'Bearer';
     return `${tokenType} ${token}`;
+  }
+
+  /**
+   * Sets the token endpoint URL for OAuth token exchange
+   * @param endpoint - Token endpoint URL
+   */
+  setTokenEndpoint(endpoint: string): void {
+    this.tokenEndpoint = endpoint;
+  }
+
+  /**
+   * Gets the current token endpoint URL
+   * @returns Token endpoint URL or null if not set
+   */
+  getTokenEndpoint(): string | null {
+    return this.tokenEndpoint;
+  }
+
+  /**
+   * Refreshes the access token using OAuth client credentials flow
+   * @param tokenEndpoint - Optional token endpoint (uses configured one if not provided)
+   * @returns Promise that resolves when token is refreshed
+   * @throws SdkError if refresh fails
+   */
+  async refreshToken(tokenEndpoint?: string): Promise<void> {
+    // If there's already a refresh in progress, wait for it
+    if (this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    // Start the refresh process
+    this.refreshPromise = this.performTokenRefresh(tokenEndpoint);
+
+    try {
+      await this.refreshPromise;
+    } finally {
+      // Clear the promise when done (success or failure)
+      this.refreshPromise = null;
+    }
+  }
+
+  /**
+   * Performs the actual token refresh
+   * @param tokenEndpoint - Token endpoint URL to use
+   * @private
+   */
+  private async performTokenRefresh(tokenEndpoint?: string): Promise<void> {
+    const endpoint = tokenEndpoint || this.tokenEndpoint;
+
+    if (!endpoint) {
+      throw new SdkError(
+        'Token endpoint not configured. Please set the token endpoint URL before attempting token refresh.'
+      );
+    }
+
+    try {
+      // Prepare the OAuth client credentials request
+      const body = new URLSearchParams();
+      body.append('grant_type', 'client_credentials');
+      body.append('client_id', this.credentials.clientId);
+      body.append('client_secret', this.credentials.clientSecret);
+
+      // Make the token request
+      const response = await post(endpoint, body.toString(), {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Accept: 'application/json',
+        },
+        timeout: 10000, // 10 second timeout for auth requests
+      });
+
+      // Parse the response
+      if (!response.data || typeof response.data !== 'object') {
+        throw new SdkError('Invalid token response: expected JSON object');
+      }
+
+      const tokenData = response.data as TokenResponse;
+
+      // Validate required fields
+      if (!tokenData.access_token) {
+        throw new SdkError('Invalid token response: missing access_token');
+      }
+
+      if (!tokenData.expires_in || tokenData.expires_in <= 0) {
+        throw new SdkError('Invalid token response: missing or invalid expires_in');
+      }
+
+      // Store the new token
+      this.setToken(tokenData.access_token, tokenData.expires_in, tokenData.token_type || 'Bearer');
+    } catch (error) {
+      // Clear any existing token on refresh failure
+      this.clearToken();
+
+      if (error instanceof NetworkError) {
+        throw new SdkError(`Failed to refresh access token: ${error.message}`, error);
+      }
+
+      if (error instanceof SdkError) {
+        throw error;
+      }
+
+      throw new SdkError('Unexpected error during token refresh', error);
+    }
   }
 }
