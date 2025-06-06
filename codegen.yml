@@ -1,0 +1,50 @@
+overwrite: true
+schema: "./sample-schema.graphql"
+generates:
+  src/generated/types.ts:
+    plugins:
+      - "typescript"
+    config:
+      # Scalar type mappings
+      scalars:
+        DateTime: Date
+        JSON: Record<string, any>
+      
+      # Naming conventions
+      typesPrefix: ""
+      typesSuffix: ""
+      enumsAsTypes: false
+      enumsAsConst: true
+      
+      # Generate helpful comments
+      addCommentsToGeneratedCode: true
+      
+      # Avoid generating React-specific code
+      skipTypename: false
+      withHooks: false
+      withComponent: false
+      withHOC: false
+      
+      # Type safety options
+      strictScalars: true
+      defaultScalarType: unknown
+      
+      # Output formatting
+      declarationKind: "interface"
+      
+      # Input/Output type generation
+      onlyOperationTypes: false
+      omitObjectTypes: false
+      
+      # Fragment handling
+      fragmentVariables: true
+      
+      # Enum handling
+      constEnums: false
+      
+      # Additional type safety
+      preResolveTypes: true
+      skipDocumentsValidation: false
+      
+      # Avoid any types where possible  
+      avoidOptionals: false
