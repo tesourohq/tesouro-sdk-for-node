@@ -13,8 +13,26 @@ import type {
   DefinitionNode,
   GraphQLField,
   GraphQLObjectType,
+  GraphQLType,
+  GraphQLNonNull,
+  GraphQLList,
+  GraphQLUnionType,
+  GraphQLInterfaceType,
+  GraphQLScalarType,
+  GraphQLEnumType,
 } from 'graphql';
-import { Kind, visit, isObjectType } from 'graphql';
+import { 
+  Kind, 
+  visit, 
+  isObjectType, 
+  isScalarType, 
+  isEnumType, 
+  isListType, 
+  isNonNullType,
+  isUnionType,
+  isInterfaceType,
+  getNamedType,
+} from 'graphql';
 
 /**
  * Configuration options for the client methods plugin
@@ -28,6 +46,8 @@ export interface ClientMethodsPluginConfig {
   generateDocs?: boolean;
   /** Import path for the base client types (default: './client') */
   clientImportPath?: string;
+  /** Maximum depth for field selection generation (default: 10) */
+  maxFieldDepth?: number;
 }
 
 /**
@@ -64,11 +84,12 @@ export const plugin: PluginFunction<ClientMethodsPluginConfig> = (
     methodSuffix: '',
     generateDocs: true,
     clientImportPath: './client',
+    maxFieldDepth: 10,
     ...config,
   };
 
   // Extract operations from the schema
-  const operations = extractOperationsFromSchema(schema);
+  const operations = extractOperationsFromSchema(schema, pluginConfig);
 
   // Generate the output code
   return generateClientMethods(operations, pluginConfig);
@@ -77,7 +98,7 @@ export const plugin: PluginFunction<ClientMethodsPluginConfig> = (
 /**
  * Extracts operation information from the GraphQL schema
  */
-function extractOperationsFromSchema(schema: GraphQLSchema): OperationInfo[] {
+function extractOperationsFromSchema(schema: GraphQLSchema, config: Required<ClientMethodsPluginConfig>): OperationInfo[] {
   const operations: OperationInfo[] = [];
 
   // Get the root operation types
@@ -89,7 +110,7 @@ function extractOperationsFromSchema(schema: GraphQLSchema): OperationInfo[] {
   if (queryType) {
     const queryFields = queryType.getFields();
     for (const [fieldName, field] of Object.entries(queryFields)) {
-      operations.push(createOperationInfo(fieldName, field, 'query'));
+      operations.push(createOperationInfo(fieldName, field, 'query', schema, config));
     }
   }
 
@@ -97,7 +118,7 @@ function extractOperationsFromSchema(schema: GraphQLSchema): OperationInfo[] {
   if (mutationType) {
     const mutationFields = mutationType.getFields();
     for (const [fieldName, field] of Object.entries(mutationFields)) {
-      operations.push(createOperationInfo(fieldName, field, 'mutation'));
+      operations.push(createOperationInfo(fieldName, field, 'mutation', schema, config));
     }
   }
 
@@ -105,7 +126,7 @@ function extractOperationsFromSchema(schema: GraphQLSchema): OperationInfo[] {
   if (subscriptionType) {
     const subscriptionFields = subscriptionType.getFields();
     for (const [fieldName, field] of Object.entries(subscriptionFields)) {
-      operations.push(createOperationInfo(fieldName, field, 'subscription'));
+      operations.push(createOperationInfo(fieldName, field, 'subscription', schema, config));
     }
   }
 
@@ -118,10 +139,12 @@ function extractOperationsFromSchema(schema: GraphQLSchema): OperationInfo[] {
 function createOperationInfo(
   fieldName: string,
   field: GraphQLField<any, any>,
-  operationType: 'query' | 'mutation' | 'subscription'
+  operationType: 'query' | 'mutation' | 'subscription',
+  schema: GraphQLSchema,
+  config: Required<ClientMethodsPluginConfig>
 ): OperationInfo {
   // Generate the operation string
-  const operationString = generateOperationString(fieldName, field, operationType);
+  const operationString = generateOperationString(fieldName, field, operationType, schema, config);
   
   // Generate TypeScript type names following GraphQL codegen conventions
   const capitalizedFieldName = capitalize(fieldName);
@@ -150,7 +173,9 @@ function createOperationInfo(
 function generateOperationString(
   fieldName: string,
   field: GraphQLField<any, any>,
-  operationType: 'query' | 'mutation' | 'subscription'
+  operationType: 'query' | 'mutation' | 'subscription',
+  schema: GraphQLSchema,
+  config: Required<ClientMethodsPluginConfig>
 ): string {
   const capitalizedFieldName = capitalize(fieldName);
   const operationTypeName = capitalize(operationType);
@@ -167,11 +192,13 @@ function generateOperationString(
     : fieldName;
 
   // Generate field selection based on return type
-  const fieldSelection = generateFieldSelection(field);
+  const fieldSelection = generateFieldSelection(field, schema, config);
 
   return `
     ${operationType} ${operationTypeName}${capitalizedFieldName}${argsString} {
-      ${fieldCall}${fieldSelection ? ` {\n        ${fieldSelection}\n      }` : ''}
+      ${fieldCall} {
+        ${fieldSelection || '__typename'}
+      }
     }
   `.trim();
 }
@@ -179,20 +206,96 @@ function generateOperationString(
 /**
  * Generates field selection for a GraphQL field based on its return type
  */
-function generateFieldSelection(field: GraphQLField<any, any>): string {
-  // For now, generate a basic selection set
-  // In a real implementation, you'd recursively build the selection based on the type
-  const returnType = field.type;
+function generateFieldSelection(field: GraphQLField<any, any>, schema: GraphQLSchema, config: Required<ClientMethodsPluginConfig>): string {
+  const returnType = getNamedType(field.type);
   
-  // Check if this is an object type that needs field selection
-  if (isObjectType(returnType) || (returnType.toString().includes('!') && returnType.toString().includes('['))) {
-    // For object types, we need some basic fields
-    // This is a simplified approach - real implementation would introspect the type
-    return '__typename\n        id';
+  // For scalar, enum, or other non-object types, no selection needed
+  if (isScalarType(returnType) || isEnumType(returnType)) {
+    return '';
   }
   
-  // For scalar types, no selection needed
-  return '';
+  // For object types, generate a complete field selection
+  if (isObjectType(returnType)) {
+    return generateObjectFieldSelection(returnType, schema, config);
+  }
+  
+  // For union or interface types, generate a selection with fragments
+  if (isUnionType(returnType) || isInterfaceType(returnType)) {
+    return generateUnionInterfaceFieldSelection(returnType, schema, config);
+  }
+  
+  // Fallback for unknown types
+  return '__typename';
+}
+
+/**
+ * Generates field selection for GraphQL object types including all scalar/enum fields
+ */
+function generateObjectFieldSelection(
+  objectType: GraphQLObjectType, 
+  schema: GraphQLSchema, 
+  config: Required<ClientMethodsPluginConfig>,
+  visitedTypes: Set<string> = new Set(),
+  depth: number = 0
+): string {
+  // Prevent infinite recursion with depth limit
+  if (depth >= config.maxFieldDepth) {
+    return '__typename';
+  }
+  
+  // Detect cycles by checking if we're already processing this type
+  if (visitedTypes.has(objectType.name)) {
+    return '__typename';
+  }
+  
+  const fields = objectType.getFields();
+  const selectedFields: string[] = ['__typename'];
+  
+  // Add this type to the visited set for cycle detection
+  const newVisitedTypes = new Set(visitedTypes);
+  newVisitedTypes.add(objectType.name);
+  
+  // Include all scalar and enum fields
+  for (const [fieldName, fieldDef] of Object.entries(fields)) {
+    const fieldType = getNamedType(fieldDef.type);
+    
+    if (isScalarType(fieldType) || isEnumType(fieldType)) {
+      selectedFields.push(fieldName);
+    } else if (isObjectType(fieldType)) {
+      // For nested object types, recursively generate selections
+      const nestedSelections = generateObjectFieldSelection(
+        fieldType, 
+        schema, 
+        config, 
+        newVisitedTypes, 
+        depth + 1
+      );
+      selectedFields.push(`${fieldName} {\n          ${nestedSelections.replace(/\n/g, '\n          ')}\n        }`);
+    }
+  }
+  
+  return selectedFields.join('\n        ');
+}
+
+/**
+ * Generates field selection for union or interface types
+ */
+function generateUnionInterfaceFieldSelection(type: GraphQLUnionType | GraphQLInterfaceType, schema: GraphQLSchema, config: Required<ClientMethodsPluginConfig>): string {
+  const selections = ['__typename'];
+  
+  if (isInterfaceType(type)) {
+    // For interface types, include all interface fields
+    const fields = type.getFields();
+    
+    for (const [fieldName, fieldDef] of Object.entries(fields)) {
+      const fieldType = getNamedType(fieldDef.type);
+      if (isScalarType(fieldType) || isEnumType(fieldType)) {
+        selections.push(fieldName);
+      }
+    }
+  }
+  
+  return selections.join('\n        ');
 }
 
 /**
