@@ -270,6 +270,113 @@ describe('ApiClient', () => {
     });
   });
 
+  describe('401 authentication retry integration', () => {
+    let client: ApiClient;
+
+    beforeEach(() => {
+      client = new ApiClient(baseConfig);
+      mockAuthManager.isTokenValid.mockReturnValue(true);
+      mockAuthManager.getAuthorizationHeader.mockReturnValue('Bearer test-token');
+    });
+
+    it('should retry request after 401 with token refresh', async () => {
+      const networkError = new NetworkError('Unauthorized', 401, 'req-123');
+      const mockSuccessResult = { data: { test: 'success' }, response: {} as any };
+
+      // First call fails with 401, second call succeeds
+      mockMakeGraphQLRequest.mockRejectedValueOnce(networkError);
+      mockMakeGraphQLRequest.mockResolvedValueOnce(mockSuccessResult);
+
+      // Mock successful token refresh
+      mockAuthManager.refreshToken.mockResolvedValue(undefined);
+      mockAuthManager.getAuthorizationHeader.mockReturnValueOnce('Bearer old-token');
+      mockAuthManager.getAuthorizationHeader.mockReturnValueOnce('Bearer new-token');
+
+      const result = await client.request('query { test }');
+
+      expect(result).toBe(mockSuccessResult);
+      expect(mockAuthManager.refreshToken).toHaveBeenCalledTimes(1);
+      expect(mockMakeGraphQLRequest).toHaveBeenCalledTimes(2);
+
+      // Verify the second call used the new token
+      expect(mockMakeGraphQLRequest).toHaveBeenLastCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            authorization: 'Bearer new-token',
+          }),
+        })
+      );
+    });
+
+    it('should throw enhanced error when 401 occurs and token refresh fails', async () => {
+      const networkError = new NetworkError('Unauthorized', 401, 'req-123');
+      const refreshError = new Error('Token refresh failed');
+
+      mockMakeGraphQLRequest.mockRejectedValue(networkError);
+      mockAuthManager.refreshToken.mockRejectedValue(refreshError);
+
+      await expect(client.request('query { test }')).rejects.toThrow(
+        'Authentication failed: received 401 Unauthorized response and automatic token refresh failed'
+      );
+
+      expect(mockAuthManager.refreshToken).toHaveBeenCalledTimes(1);
+      expect(mockMakeGraphQLRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not retry on 401 when autoRefresh is disabled', async () => {
+      const networkError = new NetworkError('Unauthorized', 401, 'req-123');
+      mockMakeGraphQLRequest.mockRejectedValue(networkError);
+
+      await expect(
+        client.request('query { test }', undefined, { autoRefresh: false })
+      ).rejects.toThrow('Unauthorized');
+
+      expect(mockAuthManager.refreshToken).not.toHaveBeenCalled();
+      expect(mockMakeGraphQLRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not retry on 401 when includeAuth is disabled', async () => {
+      const networkError = new NetworkError('Unauthorized', 401, 'req-123');
+      mockMakeGraphQLRequest.mockRejectedValue(networkError);
+
+      await expect(
+        client.request('query { test }', undefined, { includeAuth: false })
+      ).rejects.toThrow('Unauthorized');
+
+      expect(mockAuthManager.refreshToken).not.toHaveBeenCalled();
+      expect(mockMakeGraphQLRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not retry on non-401 network errors', async () => {
+      const networkError = new NetworkError('Server Error', 500, 'req-123');
+      mockMakeGraphQLRequest.mockRejectedValue(networkError);
+
+      await expect(client.request('query { test }')).rejects.toThrow('Server Error');
+
+      expect(mockAuthManager.refreshToken).not.toHaveBeenCalled();
+      expect(mockMakeGraphQLRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it('should include auth header in initial request', async () => {
+      const mockResult = { data: { test: 'success' }, response: {} as any };
+      mockMakeGraphQLRequest.mockResolvedValue(mockResult);
+
+      await client.request('query { test }');
+
+      expect(mockMakeGraphQLRequest).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            authorization: 'Bearer test-token',
+          }),
+        })
+      );
+    });
+  });
+
   describe('mutate', () => {
     let client: ApiClient;
 

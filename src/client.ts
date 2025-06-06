@@ -11,7 +11,7 @@ import { type ClientConfig, validateClientConfig, applyConfigDefaults } from './
 
 // Re-export types that generated code needs
 export type { GraphQLResult } from './graphql';
-import { SdkError } from './errors';
+import { SdkError, NetworkError } from './errors';
 import type {
   User,
   Transaction,
@@ -128,13 +128,46 @@ export class ApiClient {
       }
     }
 
-    // Make GraphQL request
-    return makeGraphQLRequest<TResult>(this.config.endpoint, query, {
-      ...graphqlOptions,
-      variables: variables as Record<string, unknown> | undefined,
-      headers: requestHeaders,
-      timeout: graphqlOptions.timeout || this.config.timeout,
-    });
+    // Make GraphQL request with 401 retry logic
+    try {
+      return await makeGraphQLRequest<TResult>(this.config.endpoint, query, {
+        ...graphqlOptions,
+        variables: variables as Record<string, unknown> | undefined,
+        headers: requestHeaders,
+        timeout: graphqlOptions.timeout || this.config.timeout,
+      });
+    } catch (error: unknown) {
+      // Handle 401 unauthorized responses by attempting token refresh
+      if (includeAuth && autoRefresh && error instanceof NetworkError && error.statusCode === 401) {
+        try {
+          // Force refresh the token
+          await this.refreshToken();
+
+          // Update the authorization header with the new token
+          const newAuthHeader = this.authManager.getAuthorizationHeader();
+          if (newAuthHeader) {
+            requestHeaders.authorization = newAuthHeader;
+          }
+        } catch (refreshError) {
+          // If token refresh fails, create a new error that explains the authentication failure
+          throw new SdkError(
+            'Authentication failed: received 401 Unauthorized response and automatic token refresh failed',
+            refreshError
+          );
+        }
+
+        // Retry the request with the new token
+        return await makeGraphQLRequest<TResult>(this.config.endpoint, query, {
+          ...graphqlOptions,
+          variables: variables as Record<string, unknown> | undefined,
+          headers: requestHeaders,
+          timeout: graphqlOptions.timeout || this.config.timeout,
+        });
+      }
+
+      // Re-throw all other errors
+      throw error;
+    }
   }
 
   /**
