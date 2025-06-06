@@ -86,6 +86,34 @@ export class AuthManager {
   }
 
   /**
+   * Gets a valid access token, automatically refreshing if needed
+   * @param forceRefresh - Force refresh even if token is still valid
+   * @returns Promise resolving to access token or null if refresh fails
+   */
+  async getValidToken(forceRefresh = false): Promise<string | null> {
+    // If forcing refresh or token needs refresh, attempt to refresh
+    if (forceRefresh || this.shouldRefreshToken()) {
+      try {
+        await this.refreshToken();
+      } catch {
+        // If refresh fails but we still have a valid token, return it
+        if (this.isTokenValid()) {
+          return this.token!.accessToken;
+        }
+        // Otherwise, return null to indicate no valid token available
+        return null;
+      }
+    }
+
+    // Return the current token if valid
+    if (this.isTokenValid()) {
+      return this.token!.accessToken;
+    }
+
+    return null;
+  }
+
+  /**
    * Clears the stored token
    */
   clearToken(): void {
@@ -221,10 +249,10 @@ export class AuthManager {
   }
 
   /**
-   * Refreshes the access token using OAuth client credentials flow
+   * Refreshes the access token using OAuth client credentials flow with retry logic
    * @param tokenEndpoint - Optional token endpoint (uses configured one if not provided)
    * @returns Promise that resolves when token is refreshed
-   * @throws SdkError if refresh fails
+   * @throws SdkError if refresh fails after all retries
    */
   async refreshToken(tokenEndpoint?: string): Promise<void> {
     // If there's already a refresh in progress, wait for it
@@ -232,8 +260,8 @@ export class AuthManager {
       return this.refreshPromise;
     }
 
-    // Start the refresh process
-    this.refreshPromise = this.performTokenRefresh(tokenEndpoint);
+    // Start the refresh process with retry logic
+    this.refreshPromise = this.performTokenRefreshWithRetry(tokenEndpoint);
 
     try {
       await this.refreshPromise;
@@ -241,6 +269,49 @@ export class AuthManager {
       // Clear the promise when done (success or failure)
       this.refreshPromise = null;
     }
+  }
+
+  /**
+   * Performs token refresh with exponential backoff retry
+   * @param tokenEndpoint - Token endpoint URL to use
+   * @param maxRetries - Maximum number of retry attempts (default: 3)
+   * @private
+   */
+  private async performTokenRefreshWithRetry(
+    tokenEndpoint?: string,
+    maxRetries: number = 3
+  ): Promise<void> {
+    let lastError: Error | undefined;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        await this.performTokenRefresh(tokenEndpoint);
+        return; // Success, exit retry loop
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // If this was the last attempt, don't wait
+        if (attempt === maxRetries) {
+          break;
+        }
+
+        // Check if error is retryable
+        if (error instanceof SdkError && !error.isRetryable()) {
+          throw error; // Don't retry non-retryable errors
+        }
+
+        // Calculate backoff delay with jitter: base delay ± 25% random variance
+        const exponentialDelayMs = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        const jitterMs = exponentialDelayMs * 0.25 * (Math.random() * 2 - 1); // ±25% jitter
+        const delayMs = Math.max(0, exponentialDelayMs + jitterMs);
+
+        // Wait before retrying
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+
+    // All retries failed, throw the last error
+    throw lastError || new SdkError('Token refresh failed after all retry attempts');
   }
 
   /**

@@ -29,6 +29,16 @@ describe('AuthManager', () => {
   let authManager: AuthManager;
 
   beforeEach(() => {
+    // Use fake timers to control setTimeout delays
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    // Restore real timers after each test
+    jest.useRealTimers();
+  });
+
+  beforeEach(() => {
     authManager = new AuthManager(mockCredentials);
     mockPost.mockClear();
   });
@@ -182,8 +192,8 @@ describe('AuthManager', () => {
       authManager.setToken('valid-token', 10);
       const initialTime = authManager.getTimeUntilExpiration();
 
-      // Wait a small amount
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Advance fake timers by 100ms
+      jest.advanceTimersByTime(100);
 
       const laterTime = authManager.getTimeUntilExpiration();
       expect(laterTime).toBeLessThan(initialTime);
@@ -295,59 +305,100 @@ describe('AuthManager', () => {
     });
 
     it('should handle invalid token response format', async () => {
-      mockPost.mockResolvedValueOnce(createMockResponse('invalid response'));
+      // Mock all retry attempts to fail with invalid response
+      mockPost.mockResolvedValue(createMockResponse('invalid response'));
 
-      await expect(authManager.refreshToken()).rejects.toThrow(
+      // Start the refresh and advance timers simultaneously
+      const refreshPromise = expect(authManager.refreshToken()).rejects.toThrow(
         'Invalid token response: expected JSON object'
       );
+
+      // Fast-forward through all retry delays
+      await jest.runAllTimersAsync();
+
+      // Wait for the assertion to complete
+      await refreshPromise;
+
       expect(authManager.getToken()).toBeNull();
     });
 
     it('should handle missing access_token in response', async () => {
-      mockPost.mockResolvedValueOnce(
+      mockPost.mockResolvedValue(
         createMockResponse({
           token_type: 'Bearer',
           expires_in: 3600,
         })
       );
 
-      await expect(authManager.refreshToken()).rejects.toThrow(
+      // Start the refresh and advance timers simultaneously
+      const refreshPromise = expect(authManager.refreshToken()).rejects.toThrow(
         'Invalid token response: missing access_token'
       );
+
+      // Fast-forward through all retry delays
+      await jest.runAllTimersAsync();
+
+      // Wait for the assertion to complete
+      await refreshPromise;
+
       expect(authManager.getToken()).toBeNull();
     });
 
     it('should handle missing expires_in in response', async () => {
-      mockPost.mockResolvedValueOnce(
+      mockPost.mockResolvedValue(
         createMockResponse({
           access_token: 'test-token',
           token_type: 'Bearer',
         })
       );
 
-      await expect(authManager.refreshToken()).rejects.toThrow(
+      // Start the refresh and advance timers simultaneously
+      const refreshPromise = expect(authManager.refreshToken()).rejects.toThrow(
         'Invalid token response: missing or invalid expires_in'
       );
+
+      // Fast-forward through all retry delays
+      await jest.runAllTimersAsync();
+
+      // Wait for the assertion to complete
+      await refreshPromise;
+
       expect(authManager.getToken()).toBeNull();
     });
 
     it('should handle network errors', async () => {
       const networkError = new NetworkError('Connection failed');
-      mockPost.mockRejectedValueOnce(networkError);
+      mockPost.mockRejectedValue(networkError);
 
-      await expect(authManager.refreshToken()).rejects.toThrow(
+      // Start the refresh and advance timers simultaneously
+      const refreshPromise = expect(authManager.refreshToken()).rejects.toThrow(
         'Failed to refresh access token: Connection failed'
       );
+
+      // Fast-forward through all retry delays
+      await jest.runAllTimersAsync();
+
+      // Wait for the assertion to complete
+      await refreshPromise;
+
       expect(authManager.getToken()).toBeNull();
     });
 
     it('should handle unexpected errors', async () => {
       const unexpectedError = new Error('Something went wrong');
-      mockPost.mockRejectedValueOnce(unexpectedError);
+      mockPost.mockRejectedValue(unexpectedError);
 
-      await expect(authManager.refreshToken()).rejects.toThrow(
+      // Start the refresh and advance timers simultaneously
+      const refreshPromise = expect(authManager.refreshToken()).rejects.toThrow(
         'Unexpected error during token refresh'
       );
+
+      // Fast-forward through all retry delays
+      await jest.runAllTimersAsync();
+
+      // Wait for the assertion to complete
+      await refreshPromise;
+
       expect(authManager.getToken()).toBeNull();
     });
 
@@ -378,11 +429,19 @@ describe('AuthManager', () => {
       authManager.setToken('existing-token', 3600);
       expect(authManager.getToken()).toBe('existing-token');
 
-      // Mock a failed refresh
-      mockPost.mockRejectedValueOnce(new Error('Refresh failed'));
+      // Mock a failed refresh for all retry attempts
+      mockPost.mockRejectedValue(new Error('Refresh failed'));
 
-      // Attempt refresh
-      await expect(authManager.refreshToken()).rejects.toThrow();
+      // Start the refresh and advance timers simultaneously
+      const refreshPromise = expect(authManager.refreshToken()).rejects.toThrow(
+        'Unexpected error during token refresh'
+      );
+
+      // Fast-forward through all retry delays
+      await jest.runAllTimersAsync();
+
+      // Wait for the assertion to complete
+      await refreshPromise;
 
       // Token should be cleared
       expect(authManager.getToken()).toBeNull();

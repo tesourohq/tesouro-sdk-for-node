@@ -68,6 +68,33 @@ export class SdkError extends Error {
   }
 
   /**
+   * Determines if the error might be retryable
+   * @returns true if the error might be retryable
+   */
+  isRetryable(): boolean {
+    // Configuration errors are not retryable
+    if (
+      this.message.includes('not configured') ||
+      this.message.includes('configuration') ||
+      this.message.includes('invalid configuration')
+    ) {
+      return false;
+    }
+
+    // Token response validation errors might be transient, so they're retryable
+    if (
+      this.message.includes('Invalid token response') ||
+      this.message.includes('Failed to refresh access token') ||
+      this.message.includes('Unexpected error during token refresh')
+    ) {
+      return true;
+    }
+
+    // Most other SdkErrors are not retryable by default
+    return false;
+  }
+
+  /**
    * Returns a string representation of the error
    * @returns Formatted error string
    */
