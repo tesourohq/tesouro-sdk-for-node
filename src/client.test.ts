@@ -1,4 +1,4 @@
-import { ApiClient, createClient, type ApiClientConfig, type ClientRequestOptions } from './client';
+import { ApiClient, createClient, type ApiClientConfig } from './client';
 import { AuthManager } from './auth';
 import { makeGraphQLRequest } from './graphql';
 import { SdkError, GraphQLError, NetworkError } from './errors';
@@ -128,7 +128,7 @@ describe('ApiClient', () => {
         'content-type': 'application/json',
       };
 
-      await client.request('query { test }', { headers: customHeaders });
+      await client.request('query { test }', undefined, { headers: customHeaders });
 
       expect(mockMakeGraphQLRequest).toHaveBeenCalledWith(
         expect.any(String),
@@ -143,13 +143,14 @@ describe('ApiClient', () => {
       const mockResult = { data: {}, response: {} as any };
       mockMakeGraphQLRequest.mockResolvedValue(mockResult);
 
-      const options: ClientRequestOptions = {
-        variables: { id: '123' },
-        operationName: 'GetUser',
-        timeout: 5000,
-      };
-
-      await client.request('query GetUser($id: ID!) { user(id: $id) { name } }', options);
+      await client.request(
+        'query GetUser($id: ID!) { user(id: $id) { name } }',
+        { id: '123' },
+        {
+          operationName: 'GetUser',
+          timeout: 5000,
+        }
+      );
 
       expect(mockMakeGraphQLRequest).toHaveBeenCalledWith(
         expect.any(String),
@@ -166,7 +167,7 @@ describe('ApiClient', () => {
       const mockResult = { data: {}, response: {} as any };
       mockMakeGraphQLRequest.mockResolvedValue(mockResult);
 
-      await client.request('query { test }', { includeAuth: false });
+      await client.request('query { test }', undefined, { includeAuth: false });
 
       expect(mockMakeGraphQLRequest).toHaveBeenCalledWith(
         expect.any(String),
@@ -414,7 +415,7 @@ describe('ApiClient', () => {
       const mockResult = { data: {}, response: {} as any };
       mockMakeGraphQLRequest.mockResolvedValue(mockResult);
 
-      await clientWithDefaults.request('query { test }', {
+      await clientWithDefaults.request('query { test }', undefined, {
         headers: {
           'x-custom': 'custom-value',
           'x-api-version': 'v2', // Should override default
