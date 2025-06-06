@@ -8,6 +8,9 @@
 import { AuthManager, type ClientCredentials } from './auth';
 import { makeGraphQLRequest, type GraphQLRequestOptions, type GraphQLResult } from './graphql';
 import { type ClientConfig, validateClientConfig, applyConfigDefaults } from './types';
+
+// Re-export types that generated code needs
+export type { GraphQLResult } from './graphql';
 import { SdkError } from './errors';
 import type {
   User,

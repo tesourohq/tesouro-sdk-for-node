@@ -48,3 +48,13 @@ generates:
       
       # Avoid any types where possible  
       avoidOptionals: false
+
+  src/generated/client-methods.ts:
+    plugins:
+      - "./codegen-plugin.js"
+    config:
+      # Custom plugin configuration
+      methodPrefix: ""
+      methodSuffix: ""
+      generateDocs: true
+      clientImportPath: "../client"
