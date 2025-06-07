@@ -1,4 +1,4 @@
-import { hello, version } from './index';
+import { hello, version } from '../../src/index';
 
 describe('Tesouro SDK', () => {
   describe('hello function', () => {

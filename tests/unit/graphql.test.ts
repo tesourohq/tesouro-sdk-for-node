@@ -5,12 +5,12 @@ import {
   isMutation,
   safeStringifyVariables,
   type GraphQLResponse,
-} from './graphql';
-import { GraphQLError, NetworkError, ResponseError } from './errors';
-import { makeRequest } from './request';
+} from '../../src/graphql';
+import { GraphQLError, NetworkError, ResponseError } from '../../src/errors';
+import { makeRequest } from '../../src/request';
 
 // Mock the request module
-jest.mock('./request');
+jest.mock('../../src/request');
 const mockMakeRequest = makeRequest as jest.MockedFunction<typeof makeRequest>;
 
 describe('GraphQL Request Builder', () => {

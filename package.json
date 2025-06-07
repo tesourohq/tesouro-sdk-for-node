@@ -72,6 +72,9 @@
       "prettier --write",
       "eslint --fix",
       "jest --bail --findRelatedTests --passWithNoTests"
+    ],
+    "*.{ts,js}": [
+      "npm run test:coverage"
     ]
   }
 }

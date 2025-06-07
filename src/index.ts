@@ -2,6 +2,8 @@
  * Tesouro SDK for Node.js
  *
  * A TypeScript-first GraphQL SDK with OpenID Connect authentication
+ *
+ * @version 0.0.1
  */
 
 // Export errors

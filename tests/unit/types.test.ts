@@ -11,7 +11,7 @@ import {
   validateRequestConfig,
   applyConfigDefaults,
   deriveTokenEndpoint,
-} from './types';
+} from '../../src/types';
 
 describe('Type Guards', () => {
   describe('isValidString', () => {

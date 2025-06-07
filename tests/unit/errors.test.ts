@@ -6,7 +6,7 @@ import {
   ErrorUtils,
   type GraphQLErrorPath,
   type GraphQLErrorExtensions,
-} from './errors';
+} from '../../src/errors';
 
 describe('SdkError', () => {
   describe('constructor', () => {

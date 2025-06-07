@@ -1,9 +1,9 @@
-import { AuthManager, ClientCredentials } from './auth';
-import { NetworkError } from './errors';
-import { post } from './request';
+import { AuthManager, ClientCredentials } from '../../src/auth';
+import { NetworkError } from '../../src/errors';
+import { post } from '../../src/request';
 
 // Mock the request module
-jest.mock('./request', () => ({
+jest.mock('../../src/request', () => ({
   post: jest.fn(),
 }));
 
@@ -458,6 +458,133 @@ describe('AuthManager', () => {
       await authManager.refreshToken();
 
       expect(authManager.getAuthorizationHeader()).toBe('Custom new-access-token');
+    });
+
+    describe('getValidToken', () => {
+      it('should return valid token without refresh when token is valid', async () => {
+        // Set a valid token that expires in 10 minutes
+        const futureTime = new Date(Date.now() + 10 * 60 * 1000);
+        authManager.setToken('valid-token', futureTime);
+
+        const token = await authManager.getValidToken();
+
+        expect(token).toBe('valid-token');
+        expect(mockPost).not.toHaveBeenCalled();
+      });
+
+      it('should return null when no token and refresh fails', async () => {
+        mockPost.mockRejectedValueOnce(new Error('Refresh failed'));
+
+        const tokenPromise = authManager.getValidToken();
+
+        // Fast-forward through retry delays
+        await jest.runAllTimersAsync();
+
+        const token = await tokenPromise;
+
+        expect(token).toBeNull();
+        expect(mockPost).toHaveBeenCalled();
+      });
+
+      it('should automatically refresh when token needs refresh', async () => {
+        // Set a token that expires in 2 minutes (within refresh threshold)
+        const soonExpiring = new Date(Date.now() + 2 * 60 * 1000);
+        authManager.setToken('expiring-token', soonExpiring);
+
+        mockPost.mockResolvedValueOnce(createMockResponse(mockTokenResponse));
+
+        const token = await authManager.getValidToken();
+
+        expect(token).toBe('new-access-token');
+        expect(mockPost).toHaveBeenCalledWith(
+          tokenEndpoint,
+          expect.stringContaining('grant_type=client_credentials'),
+          expect.objectContaining({
+            headers: expect.objectContaining({
+              'Content-Type': 'application/x-www-form-urlencoded',
+            }),
+          })
+        );
+      });
+
+      it('should force refresh when forceRefresh is true', async () => {
+        // Set a valid token that doesn't need refresh
+        const futureTime = new Date(Date.now() + 10 * 60 * 1000);
+        authManager.setToken('valid-token', futureTime);
+
+        mockPost.mockResolvedValueOnce(createMockResponse(mockTokenResponse));
+
+        const token = await authManager.getValidToken(true);
+
+        expect(token).toBe('new-access-token');
+        expect(mockPost).toHaveBeenCalled();
+      });
+
+      it('should return null if refresh fails (token gets cleared on failure)', async () => {
+        // Set a token that expires in 3 minutes (within refresh threshold but still valid)
+        // Note: Current implementation clears token on any refresh failure
+        const soonButValidTime = new Date(Date.now() + 3 * 60 * 1000);
+        authManager.setToken('fallback-token', soonButValidTime);
+
+        // Verify the token is still considered valid before refresh attempt
+        expect(authManager.isTokenValid()).toBe(true);
+
+        mockPost.mockRejectedValueOnce(new Error('Refresh failed'));
+
+        const tokenPromise = authManager.getValidToken();
+
+        // Fast-forward through retry delays
+        await jest.runAllTimersAsync();
+
+        const token = await tokenPromise;
+
+        // Current behavior: token gets cleared on refresh failure, so getValidToken returns null
+        expect(token).toBeNull();
+        expect(mockPost).toHaveBeenCalled();
+      });
+
+      it('should return null if refresh fails and token is expired', async () => {
+        // Set an expired token
+        const expiredTime = new Date(Date.now() - 1000);
+        authManager.setToken('expired-token', expiredTime);
+
+        mockPost.mockRejectedValueOnce(new Error('Refresh failed'));
+
+        const tokenPromise = authManager.getValidToken();
+
+        // Fast-forward through retry delays
+        await jest.runAllTimersAsync();
+
+        const token = await tokenPromise;
+
+        expect(token).toBeNull();
+        expect(mockPost).toHaveBeenCalled();
+      });
+
+      it('should handle concurrent getValidToken calls', async () => {
+        // Set no token so both calls will trigger refresh
+        mockPost.mockResolvedValueOnce(createMockResponse(mockTokenResponse));
+
+        // Start two getValidToken calls simultaneously
+        const promise1 = authManager.getValidToken();
+        const promise2 = authManager.getValidToken();
+
+        const [token1, token2] = await Promise.all([promise1, promise2]);
+
+        expect(token1).toBe('new-access-token');
+        expect(token2).toBe('new-access-token');
+        // Should only call the refresh endpoint once due to deduplication
+        expect(mockPost).toHaveBeenCalledTimes(1);
+      });
+
+      it('should return null when no token endpoint is configured', async () => {
+        const authManagerNoEndpoint = new AuthManager(mockCredentials);
+
+        const token = await authManagerNoEndpoint.getValidToken();
+
+        expect(token).toBeNull();
+        expect(mockPost).not.toHaveBeenCalled();
+      });
     });
   });
 });

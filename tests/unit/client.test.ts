@@ -1,14 +1,14 @@
-import { ApiClient, createClient, type ApiClientConfig } from './client';
-import { AuthManager } from './auth';
-import { makeGraphQLRequest } from './graphql';
-import { SdkError, GraphQLError, NetworkError } from './errors';
+import { ApiClient, createClient, type ApiClientConfig } from '../../src/client';
+import { AuthManager } from '../../src/auth';
+import { makeGraphQLRequest } from '../../src/graphql';
+import { SdkError, GraphQLError, NetworkError } from '../../src/errors';
 
 // Mock the graphql module
-jest.mock('./graphql');
+jest.mock('../../src/graphql');
 const mockMakeGraphQLRequest = makeGraphQLRequest as jest.MockedFunction<typeof makeGraphQLRequest>;
 
 // Mock the auth module
-jest.mock('./auth');
+jest.mock('../../src/auth');
 const MockAuthManager = AuthManager as jest.MockedClass<typeof AuthManager>;
 
 describe('ApiClient', () => {

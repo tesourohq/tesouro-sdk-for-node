@@ -1,5 +1,5 @@
-import { makeRequest, get, post, mergeHeaders, DEFAULT_TIMEOUT } from './request';
-import { NetworkError, ResponseError } from './errors';
+import { makeRequest, get, post, mergeHeaders, DEFAULT_TIMEOUT } from '../../src/request';
+import { NetworkError, ResponseError } from '../../src/errors';
 
 // Mock fetch globally
 const mockFetch = jest.fn();
