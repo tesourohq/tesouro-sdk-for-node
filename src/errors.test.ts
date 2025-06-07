@@ -3,8 +3,9 @@ import {
   NetworkError,
   GraphQLError,
   ResponseError,
-  GraphQLErrorPath,
-  GraphQLErrorExtensions,
+  ErrorUtils,
+  type GraphQLErrorPath,
+  type GraphQLErrorExtensions,
 } from './errors';
 
 describe('SdkError', () => {
@@ -454,6 +455,43 @@ describe('ResponseError', () => {
       expect(json.statusCode).toBe(500);
       expect(json).not.toHaveProperty('contentType');
       expect(json).not.toHaveProperty('requestId');
+    });
+  });
+});
+
+describe('ErrorUtils', () => {
+  describe('sanitizeVariables', () => {
+    it('should redact sensitive fields', () => {
+      const variables = {
+        email: 'test@example.com',
+        password: 'secret123',
+        apiKey: 'key-456',
+        name: 'John Doe',
+      };
+
+      const sanitized = ErrorUtils.sanitizeVariables(variables);
+
+      expect(sanitized.email).toBe('test@example.com');
+      expect(sanitized.password).toBe('[REDACTED]');
+      expect(sanitized.apiKey).toBe('[REDACTED]');
+      expect(sanitized.name).toBe('John Doe');
+    });
+
+    it('should handle invalid inputs', () => {
+      expect(ErrorUtils.sanitizeVariables(undefined)).toEqual({});
+      expect(ErrorUtils.sanitizeVariables(null as any)).toEqual({});
+      expect(ErrorUtils.sanitizeVariables('not an object' as any)).toEqual({});
+    });
+  });
+
+  describe('generateRequestId', () => {
+    it('should generate unique request IDs', () => {
+      const id1 = ErrorUtils.generateRequestId();
+      const id2 = ErrorUtils.generateRequestId();
+
+      expect(id1).toMatch(/^req_\d+_[a-z0-9]+$/);
+      expect(id2).toMatch(/^req_\d+_[a-z0-9]+$/);
+      expect(id1).not.toBe(id2);
     });
   });
 });

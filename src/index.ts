@@ -10,8 +10,10 @@ export {
   NetworkError,
   GraphQLError,
   ResponseError,
+  ErrorUtils,
   type GraphQLErrorPath,
   type GraphQLErrorExtensions,
+  type ErrorContext,
 } from './errors';
 
 // Export authentication

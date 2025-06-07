@@ -71,6 +71,34 @@ interface OperationInfo {
 }
 
 /**
+ * Information about a GraphQL error type extracted from the schema
+ */
+interface ErrorTypeInfo {
+  /** Name of the error type (e.g., 'InternalServiceError') */
+  name: string;
+  /** Base interface this error extends ('Error', 'ErrorBase', 'IGraphQlError') */
+  baseType: 'Error' | 'ErrorBase' | 'IGraphQlError' | 'unknown';
+  /** Description from GraphQL schema */
+  description?: string;
+  /** Field definitions for this error type */
+  fields: ErrorFieldInfo[];
+}
+
+/**
+ * Information about a field in an error type
+ */
+interface ErrorFieldInfo {
+  /** Field name */
+  name: string;
+  /** TypeScript type for this field */
+  type: string;
+  /** Whether this field is required */
+  required: boolean;
+  /** Field description */
+  description?: string;
+}
+
+/**
  * Custom GraphQL Code Generator plugin that generates client methods
  */
 export const plugin: PluginFunction<ClientMethodsPluginConfig> = (
@@ -90,9 +118,12 @@ export const plugin: PluginFunction<ClientMethodsPluginConfig> = (
 
   // Extract operations from the schema
   const operations = extractOperationsFromSchema(schema, pluginConfig);
+  
+  // Extract error types from the schema
+  const errorTypes = extractErrorTypesFromSchema(schema);
 
   // Generate the output code
-  return generateClientMethods(operations, pluginConfig);
+  return generateClientMethods(operations, errorTypes, pluginConfig);
 };
 
 /**
@@ -131,6 +162,76 @@ function extractOperationsFromSchema(schema: GraphQLSchema, config: Required<Cli
   }
 
   return operations;
+}
+
+/**
+ * Extracts error type information from the GraphQL schema
+ */
+function extractErrorTypesFromSchema(schema: GraphQLSchema): ErrorTypeInfo[] {
+  const errorTypes: ErrorTypeInfo[] = [];
+  const typeMap = schema.getTypeMap();
+
+  // Base error interface names we're looking for
+  const baseErrorInterfaces = ['Error', 'ErrorBase', 'IGraphQlError'];
+
+  for (const [typeName, type] of Object.entries(typeMap)) {
+    // Skip built-in types
+    if (typeName.startsWith('_')) continue;
+
+    // Only process object types that look like errors
+    if (isObjectType(type) && (typeName.endsWith('Error') || baseErrorInterfaces.includes(typeName))) {
+      const errorInfo = createErrorTypeInfo(type, schema);
+      if (errorInfo) {
+        errorTypes.push(errorInfo);
+      }
+    }
+  }
+
+  return errorTypes;
+}
+
+/**
+ * Creates error type information from a GraphQL object type
+ */
+function createErrorTypeInfo(type: GraphQLObjectType, schema: GraphQLSchema): ErrorTypeInfo | null {
+  const fields = type.getFields();
+  const errorFields: ErrorFieldInfo[] = [];
+
+  // Determine base type by examining implemented interfaces
+  let baseType: 'Error' | 'ErrorBase' | 'IGraphQlError' | 'unknown' = 'unknown';
+  const interfaces = type.getInterfaces();
+  
+  for (const iface of interfaces) {
+    if (iface.name === 'Error') {
+      baseType = 'Error';
+    } else if (iface.name === 'ErrorBase') {
+      baseType = 'ErrorBase';
+    } else if (iface.name === 'IGraphQlError') {
+      baseType = 'IGraphQlError';
+      break; // IGraphQlError is most specific
+    }
+  }
+
+  // Extract field information
+  for (const [fieldName, field] of Object.entries(fields)) {
+    const fieldType = field.type;
+    const isRequired = isNonNullType(fieldType);
+    const namedType = getNamedType(fieldType);
+    
+    errorFields.push({
+      name: fieldName,
+      type: extractResultTypeName(fieldType.toString()),
+      required: isRequired,
+      description: field.description,
+    });
+  }
+
+  return {
+    name: type.name,
+    baseType,
+    description: type.description,
+    fields: errorFields,
+  };
 }
 
 /**
@@ -303,14 +404,18 @@ function generateUnionInterfaceFieldSelection(type: GraphQLUnionType | GraphQLIn
  */
 function generateClientMethods(
   operations: OperationInfo[],
+  errorTypes: ErrorTypeInfo[],
   config: Required<ClientMethodsPluginConfig>
 ): string {
-  const imports = generateImports(operations, config);
+  const imports = generateImports(operations, errorTypes, config);
   const methods = operations.map(op => generateMethodCode(op, config)).join('\n\n');
+  const errorUtilities = generateErrorUtilities(errorTypes);
 
   // Generate a mixin class that extends ApiClient
   return `${imports}
 import { ApiClient } from '${config.clientImportPath}';
+
+${errorUtilities}
 
 /**
  * Generated client methods for GraphQL operations
@@ -331,6 +436,7 @@ export type TypedApiClient = GeneratedApiClient;`;
  */
 function generateImports(
   operations: OperationInfo[],
+  errorTypes: ErrorTypeInfo[],
   config: Required<ClientMethodsPluginConfig>
 ): string {
   // Get unique type names needed for imports (excluding 'never')
@@ -345,11 +451,180 @@ function generateImports(
     }
   });
 
+  // Add error types to imports
+  errorTypes.forEach(errorType => {
+    typeNames.add(errorType.name);
+  });
+
   const typeImports = Array.from(typeNames).join(', ');
 
   return `
 import type { ClientRequestOptions, GraphQLResult } from '${config.clientImportPath}';
 import type { ${typeImports} } from './types';
+  `.trim();
+}
+
+/**
+ * Generates error handling utilities based on schema error types
+ */
+function generateErrorUtilities(errorTypes: ErrorTypeInfo[]): string {
+  const errorTypeConstants = generateErrorTypeConstants(errorTypes);
+  const typeGuards = generateErrorTypeGuards(errorTypes);
+  const errorFactory = generateErrorFactory(errorTypes);
+  const errorUtils = generateErrorUtils(errorTypes);
+
+  return `
+// Error handling utilities generated from GraphQL schema
+
+${errorTypeConstants}
+
+${typeGuards}
+
+${errorFactory}
+
+${errorUtils}
+  `.trim();
+}
+
+/**
+ * Generates error type constants
+ */
+function generateErrorTypeConstants(errorTypes: ErrorTypeInfo[]): string {
+  const constants = errorTypes.map(error => 
+    `  ${error.name.toUpperCase()}: '${error.name}'`
+  ).join(',\n');
+
+  return `
+/**
+ * GraphQL Error Type Constants
+ */
+export const GraphQLErrorTypes = {
+${constants}
+} as const;
+
+export type GraphQLErrorType = (typeof GraphQLErrorTypes)[keyof typeof GraphQLErrorTypes];
+  `.trim();
+}
+
+/**
+ * Generates type guard functions for error types
+ */
+function generateErrorTypeGuards(errorTypes: ErrorTypeInfo[]): string {
+  const guards = errorTypes.map(error => `
+/**
+ * Type guard for ${error.name}
+ */
+export function is${error.name}(error: any): error is ${error.name} {
+  return error && typeof error === 'object' && error.__typename === '${error.name}';
+}`).join('\n');
+
+  return guards;
+}
+
+/**
+ * Generates error factory for transforming GraphQL errors
+ */
+function generateErrorFactory(errorTypes: ErrorTypeInfo[]): string {
+  const errorMap = errorTypes.map(error => 
+    `  [GraphQLErrorTypes.${error.name.toUpperCase()}]: '${error.name}'`
+  ).join(',\n');
+
+  return `
+/**
+ * Factory for creating typed errors from GraphQL error responses
+ */
+export class GraphQLErrorFactory {
+  private static readonly errorTypeMap = {
+${errorMap}
+  };
+
+  /**
+   * Creates a typed error object from a GraphQL error response
+   */
+  static createTypedError(error: any): any {
+    if (!error || typeof error !== 'object') {
+      return error;
+    }
+
+    const typeName = error.__typename;
+    if (!typeName || !this.errorTypeMap[typeName]) {
+      return error;
+    }
+
+    // Return the error with proper typing
+    return error;
+  }
+
+  /**
+   * Checks if an error is a known GraphQL error type
+   */
+  static isKnownErrorType(typename: string): boolean {
+    return Object.values(this.errorTypeMap).includes(typename);
+  }
+
+  /**
+   * Transforms an array of GraphQL errors to typed errors
+   */
+  static transformErrors(errors: any[]): any[] {
+    if (!Array.isArray(errors)) {
+      return [];
+    }
+    
+    return errors.map(error => this.createTypedError(error));
+  }
+}
+  `.trim();
+}
+
+/**
+ * Generates error utility functions
+ */
+function generateErrorUtils(errorTypes: ErrorTypeInfo[]): string {
+  const hasErrorChecks = errorTypes.map(error => `
+  /**
+   * Checks if response contains ${error.name}
+   */
+  static has${error.name}(errors?: any[]): boolean {
+    return Array.isArray(errors) && errors.some(error => is${error.name}(error));
+  }`).join('\n');
+
+  return `
+/**
+ * Utility functions for error handling
+ */
+export class ErrorUtils {
+  /**
+   * Checks if response contains any known error types
+   */
+  static hasKnownErrors(errors?: any[]): boolean {
+    return Array.isArray(errors) && errors.some(error => 
+      error && error.__typename && GraphQLErrorFactory.isKnownErrorType(error.__typename)
+    );
+  }
+
+${hasErrorChecks}
+
+  /**
+   * Filters errors by type
+   */
+  static filterErrorsByType<T>(errors: any[], typeName: string): T[] {
+    if (!Array.isArray(errors)) {
+      return [];
+    }
+    
+    return errors.filter(error => 
+      error && error.__typename === typeName
+    ) as T[];
+  }
+
+  /**
+   * Gets first error of specific type
+   */
+  static getFirstErrorOfType<T>(errors: any[], typeName: string): T | undefined {
+    const filtered = this.filterErrorsByType<T>(errors, typeName);
+    return filtered.length > 0 ? filtered[0] : undefined;
+  }
+}
   `.trim();
 }
 

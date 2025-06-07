@@ -371,3 +371,50 @@ export class ResponseError extends SdkError {
     return result;
   }
 }
+
+/**
+ * Request context for error debugging
+ */
+export interface ErrorContext {
+  requestId?: string;
+  operationName?: string;
+  variables?: Record<string, any>;
+  timestamp: Date;
+  endpoint?: string;
+}
+
+/**
+ * Utility functions for error detection and transformation
+ */
+export class ErrorUtils {
+  /**
+   * Filters sensitive data from variables for error context
+   */
+  static sanitizeVariables(variables?: Record<string, any>): Record<string, any> {
+    if (!variables || typeof variables !== 'object') {
+      return {};
+    }
+
+    const sensitiveFields = /password|secret|token|key|credential|auth/i;
+    const sanitized: Record<string, any> = {};
+
+    for (const [key, value] of Object.entries(variables)) {
+      if (sensitiveFields.test(key)) {
+        sanitized[key] = '[REDACTED]';
+      } else if (value && typeof value === 'object') {
+        sanitized[key] = this.sanitizeVariables(value);
+      } else {
+        sanitized[key] = value;
+      }
+    }
+
+    return sanitized;
+  }
+
+  /**
+   * Generates a unique request ID for tracking
+   */
+  static generateRequestId(): string {
+    return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+}
