@@ -26,23 +26,48 @@
     "lint:fix": "eslint src/**/*.ts --fix",
     "format": "prettier --write src/**/*.ts",
     "format:check": "prettier --check src/**/*.ts",
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist coverage .nyc_output",
+    "prebuild": "npm run clean",
     "prepare": "husky",
-    "prepublishOnly": "npm run clean && npm run build && npm test"
+    "prepublishOnly": "npm run clean && npm run build && npm run test:coverage",
+    "prepack": "npm run build",
+    "version": "npm run build && git add dist/",
+    "postversion": "git push && git push --tags",
+    "release": "npm version patch && npm publish",
+    "release:minor": "npm version minor && npm publish",
+    "release:major": "npm version major && npm publish"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
   },
+  "os": ["darwin", "linux", "win32"],
   "keywords": [
     "graphql",
     "sdk",
     "typescript",
     "openid-connect",
     "authentication",
-    "api-client"
+    "api-client",
+    "tesouro",
+    "node",
+    "oauth2",
+    "rest-api"
   ],
-  "author": "Tesouro",
+  "author": {
+    "name": "Tesouro",
+    "email": "greg@tesouro.com",
+    "url": "https://tesouro.com"
+  },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tesouro/tesouro-sdk-for-node.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tesouro/tesouro-sdk-for-node/issues"
+  },
+  "homepage": "https://github.com/tesouro/tesouro-sdk-for-node#readme",
   "devDependencies": {
     "@graphql-codegen/cli": "^5.0.7",
     "@graphql-codegen/plugin-helpers": "^5.1.1",
@@ -65,8 +90,13 @@
   "files": [
     "dist/",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "lint-staged": {
     "src/**/*.ts": [
       "prettier --write",
