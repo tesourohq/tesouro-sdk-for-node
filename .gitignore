@@ -40,3 +40,6 @@ logs/
 *.tmp
 *.temp
 .cache/
+
+# Generated code
+src/generated/
