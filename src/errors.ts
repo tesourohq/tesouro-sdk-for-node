@@ -176,10 +176,17 @@ export class NetworkError extends SdkError {
   }
 
   /**
-   * Determines if the error might be retryable based on status code
+   * Determines if the error might be retryable based on status code and operation type
    * @returns true if the error might be retryable
    */
   isRetryable(): boolean {
+    // For mutations, only authentication errors (401) are safe to retry
+    // because they guarantee the operation was rejected before processing
+    if (this.context?.operationType === 'mutation') {
+      return this.statusCode === 401;
+    }
+
+    // For queries and other operations, use standard retry logic
     if (!this.statusCode) {
       // Network errors without status codes (timeouts, connection failures) might be retryable
       return true;
@@ -189,8 +196,9 @@ export class NetworkError extends SdkError {
     return (
       this.statusCode >= 500 ||
       this.statusCode === 408 || // Request Timeout
-      this.statusCode === 429
-    ); // Too Many Requests
+      this.statusCode === 429 || // Too Many Requests
+      this.statusCode === 401 // Unauthorized (safe for all operations)
+    );
   }
 
   /**
@@ -414,6 +422,8 @@ export interface ErrorContext {
   requestId?: string;
   /** GraphQL operation name */
   operationName?: string;
+  /** GraphQL operation type (query, mutation, subscription) */
+  operationType?: 'query' | 'mutation' | 'subscription';
   /** Request variables (sanitized) */
   variables?: Record<string, any>;
   /** Timestamp when the error occurred */
@@ -440,6 +450,7 @@ export class ErrorUtils {
   static createErrorContext(options: {
     requestId?: string;
     operationName?: string;
+    operationType?: 'query' | 'mutation' | 'subscription';
     variables?: Record<string, any>;
     endpoint?: string;
     method?: string;
@@ -450,6 +461,7 @@ export class ErrorUtils {
     return {
       requestId: options.requestId || this.generateRequestId(),
       operationName: options.operationName,
+      operationType: options.operationType,
       variables: options.variables ? this.sanitizeVariables(options.variables) : undefined,
       timestamp: new Date(),
       endpoint: options.endpoint,
@@ -555,5 +567,26 @@ export class ErrorUtils {
    */
   static measureDuration(startTime: number): number {
     return Date.now() - startTime;
+  }
+
+  /**
+   * Detects GraphQL operation type from query string
+   */
+  static detectOperationType(query: string): 'query' | 'mutation' | 'subscription' | undefined {
+    if (typeof query !== 'string' || !query.trim()) {
+      return undefined;
+    }
+
+    const trimmedQuery = query.trim();
+
+    if (/^\s*mutation\b/i.test(trimmedQuery)) {
+      return 'mutation';
+    } else if (/^\s*subscription\b/i.test(trimmedQuery)) {
+      return 'subscription';
+    } else if (/^\s*query\b/i.test(trimmedQuery) || /^\s*{/.test(trimmedQuery)) {
+      return 'query';
+    }
+
+    return undefined;
   }
 }

@@ -359,6 +359,46 @@ describe('ApiClient', () => {
       expect(mockMakeGraphQLRequest).toHaveBeenCalledTimes(1);
     });
 
+    it('should retry mutations on 401 errors (safe because operation was rejected)', async () => {
+      const networkError = new NetworkError('Unauthorized', 401, 'req-123');
+      const mockSuccessResult = { data: { createUser: { id: '123' } }, response: {} as any };
+
+      // First call fails with 401, second call succeeds
+      mockMakeGraphQLRequest.mockRejectedValueOnce(networkError);
+      mockMakeGraphQLRequest.mockResolvedValueOnce(mockSuccessResult);
+
+      // Mock successful token refresh
+      mockAuthManager.refreshToken.mockResolvedValue(undefined);
+      mockAuthManager.getAuthorizationHeader.mockReturnValueOnce('Bearer old-token');
+      mockAuthManager.getAuthorizationHeader.mockReturnValueOnce('Bearer new-token');
+
+      const result = await client.mutate('mutation { createUser(input: {}) { id } }');
+
+      expect(result).toBe(mockSuccessResult);
+      expect(mockAuthManager.refreshToken).toHaveBeenCalledTimes(1);
+      expect(mockMakeGraphQLRequest).toHaveBeenCalledTimes(2);
+    });
+
+    it('should retry queries on 401 errors', async () => {
+      const networkError = new NetworkError('Unauthorized', 401, 'req-123');
+      const mockSuccessResult = { data: { users: [] }, response: {} as any };
+
+      // First call fails with 401, second call succeeds
+      mockMakeGraphQLRequest.mockRejectedValueOnce(networkError);
+      mockMakeGraphQLRequest.mockResolvedValueOnce(mockSuccessResult);
+
+      // Mock successful token refresh
+      mockAuthManager.refreshToken.mockResolvedValue(undefined);
+      mockAuthManager.getAuthorizationHeader.mockReturnValueOnce('Bearer old-token');
+      mockAuthManager.getAuthorizationHeader.mockReturnValueOnce('Bearer new-token');
+
+      const result = await client.query('query { users { id } }');
+
+      expect(result).toBe(mockSuccessResult);
+      expect(mockAuthManager.refreshToken).toHaveBeenCalledTimes(1);
+      expect(mockMakeGraphQLRequest).toHaveBeenCalledTimes(2);
+    });
+
     it('should include auth header in initial request', async () => {
       const mockResult = { data: { test: 'success' }, response: {} as any };
       mockMakeGraphQLRequest.mockResolvedValue(mockResult);

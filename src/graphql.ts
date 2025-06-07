@@ -124,6 +124,7 @@ export async function makeGraphQLRequest<T = unknown>(
     const errorContext = ErrorUtils.createErrorContext({
       requestId: finalRequestId,
       operationName: finalOperationName,
+      operationType: ErrorUtils.detectOperationType(query),
       variables,
       endpoint: url,
       method: 'POST',
@@ -330,6 +331,23 @@ export function isValidGraphQLQuery(query: string): boolean {
   }
 
   return true;
+}
+
+/**
+ * Determines if a GraphQL operation is a mutation
+ *
+ * @param query - GraphQL query string
+ * @returns True if the operation is a mutation
+ */
+export function isMutation(query: string): boolean {
+  if (typeof query !== 'string' || !query.trim()) {
+    return false;
+  }
+
+  const trimmedQuery = query.trim();
+
+  // Check if the operation starts with 'mutation'
+  return /^\s*mutation\b/i.test(trimmedQuery);
 }
 
 /**

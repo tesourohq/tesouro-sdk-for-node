@@ -6,7 +6,12 @@
  */
 
 import { AuthManager, type ClientCredentials } from './auth';
-import { makeGraphQLRequest, type GraphQLRequestOptions, type GraphQLResult } from './graphql';
+import {
+  makeGraphQLRequest,
+  type GraphQLRequestOptions,
+  type GraphQLResult,
+  isMutation,
+} from './graphql';
 import { type ClientConfig, validateClientConfig, applyConfigDefaults } from './types';
 
 // Re-export types that generated code needs
@@ -131,8 +136,18 @@ export class ApiClient {
         timeout: graphqlOptions.timeout || this.config.timeout,
       });
     } catch (error: unknown) {
-      // Handle 401 unauthorized responses by attempting token refresh
-      if (includeAuth && autoRefresh && error instanceof NetworkError && error.statusCode === 401) {
+      // Handle retryable errors by attempting token refresh
+      // For financial safety, we only retry mutations on authentication errors (401)
+      // because they guarantee the operation was rejected before processing
+      const isMutationOperation = isMutation(query);
+      const shouldRetry =
+        includeAuth &&
+        autoRefresh &&
+        (isMutationOperation
+          ? this.isSafeToRetryForMutation(error)
+          : error instanceof NetworkError && error.statusCode === 401);
+
+      if (shouldRetry) {
         try {
           // Force refresh the token
           await this.refreshToken();
@@ -244,6 +259,21 @@ export class ApiClient {
    */
   getConfig(): Readonly<Required<ClientConfig>> {
     return { ...this.config };
+  }
+
+  /**
+   * Determines if an error is safe to retry for mutations
+   *
+   * Only authentication errors (401) are considered safe to retry for mutations
+   * because they indicate the request was rejected before processing.
+   *
+   * @param error - The error to check
+   * @returns True if the error is safe to retry for mutations
+   */
+  private isSafeToRetryForMutation(error: unknown): boolean {
+    // Only 401 authentication errors are safe to retry for mutations
+    // because they mean the request was rejected before any processing occurred
+    return error instanceof NetworkError && error.statusCode === 401;
   }
 
   /**

@@ -219,14 +219,83 @@ describe('NetworkError', () => {
       expect(error.isRetryable()).toBe(true);
     });
 
-    it('should not be retryable for 4xx client errors (except 408, 429)', () => {
+    it('should be retryable for 401 (unauthorized)', () => {
+      const error = new NetworkError('unauthorized', 401);
+      expect(error.isRetryable()).toBe(true);
+    });
+
+    it('should not be retryable for 4xx client errors (except 401, 408, 429)', () => {
       const error400 = new NetworkError('bad request', 400);
-      const error401 = new NetworkError('unauthorized', 401);
       const error404 = new NetworkError('not found', 404);
+      const error403 = new NetworkError('forbidden', 403);
 
       expect(error400.isRetryable()).toBe(false);
-      expect(error401.isRetryable()).toBe(false);
       expect(error404.isRetryable()).toBe(false);
+      expect(error403.isRetryable()).toBe(false);
+    });
+
+    it('should only retry 401 errors for mutations', () => {
+      const mutationContext = ErrorUtils.createErrorContext({
+        operationType: 'mutation',
+        endpoint: 'https://api.example.com/graphql',
+      });
+
+      // Only 401 should be retryable for mutations
+      const error401 = new NetworkError('Unauthorized', 401, undefined, undefined, mutationContext);
+      expect(error401.isRetryable()).toBe(true);
+
+      // Other errors should not be retryable for mutations
+      const error500 = new NetworkError('Server Error', 500, undefined, undefined, mutationContext);
+      expect(error500.isRetryable()).toBe(false);
+
+      const errorTimeout = new NetworkError(
+        'Connection failed',
+        undefined,
+        undefined,
+        undefined,
+        mutationContext
+      );
+      expect(errorTimeout.isRetryable()).toBe(false);
+
+      const error429 = new NetworkError(
+        'Too Many Requests',
+        429,
+        undefined,
+        undefined,
+        mutationContext
+      );
+      expect(error429.isRetryable()).toBe(false);
+    });
+
+    it('should use standard retry logic for queries', () => {
+      const queryContext = ErrorUtils.createErrorContext({
+        operationType: 'query',
+        endpoint: 'https://api.example.com/graphql',
+      });
+
+      // Standard retry logic should apply for queries
+      const error500 = new NetworkError('Server Error', 500, undefined, undefined, queryContext);
+      expect(error500.isRetryable()).toBe(true);
+
+      const errorTimeout = new NetworkError(
+        'Connection failed',
+        undefined,
+        undefined,
+        queryContext
+      );
+      expect(errorTimeout.isRetryable()).toBe(true);
+
+      const error429 = new NetworkError(
+        'Too Many Requests',
+        429,
+        undefined,
+        undefined,
+        queryContext
+      );
+      expect(error429.isRetryable()).toBe(true);
+
+      const error400 = new NetworkError('Bad Request', 400, undefined, undefined, queryContext);
+      expect(error400.isRetryable()).toBe(false);
     });
   });
 
@@ -460,6 +529,33 @@ describe('ResponseError', () => {
 });
 
 describe('ErrorUtils', () => {
+  describe('detectOperationType', () => {
+    it('should detect mutation operations', () => {
+      expect(ErrorUtils.detectOperationType('mutation { createUser }')).toBe('mutation');
+      expect(ErrorUtils.detectOperationType('  MUTATION CreateUser { test }')).toBe('mutation');
+      expect(ErrorUtils.detectOperationType('\n\tmutation\n{ test }')).toBe('mutation');
+    });
+
+    it('should detect query operations', () => {
+      expect(ErrorUtils.detectOperationType('query { users }')).toBe('query');
+      expect(ErrorUtils.detectOperationType('{ users }')).toBe('query');
+      expect(ErrorUtils.detectOperationType('  QUERY GetUsers { test }')).toBe('query');
+    });
+
+    it('should detect subscription operations', () => {
+      expect(ErrorUtils.detectOperationType('subscription { userUpdated }')).toBe('subscription');
+      expect(ErrorUtils.detectOperationType('  SUBSCRIPTION UserUpdated { test }')).toBe(
+        'subscription'
+      );
+    });
+
+    it('should return undefined for invalid inputs', () => {
+      expect(ErrorUtils.detectOperationType('')).toBe(undefined);
+      expect(ErrorUtils.detectOperationType('   ')).toBe(undefined);
+      expect(ErrorUtils.detectOperationType('not a query')).toBe(undefined);
+    });
+  });
+
   describe('sanitizeVariables', () => {
     it('should redact sensitive fields', () => {
       const variables = {

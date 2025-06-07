@@ -2,6 +2,7 @@ import {
   makeGraphQLRequest,
   formatGraphQLQuery,
   isValidGraphQLQuery,
+  isMutation,
   safeStringifyVariables,
   type GraphQLResponse,
 } from './graphql';
@@ -352,6 +353,31 @@ describe('GraphQL Request Builder', () => {
       expect(isValidGraphQLQuery(undefined as any)).toBe(false);
       expect(isValidGraphQLQuery(123 as any)).toBe(false);
       expect(isValidGraphQLQuery({} as any)).toBe(false);
+    });
+  });
+
+  describe('isMutation', () => {
+    it('should return true for mutation operations', () => {
+      expect(isMutation('mutation { createUser(input: {}) { id } }')).toBe(true);
+      expect(isMutation('  mutation CreateUser { createUser { id } }')).toBe(true);
+      expect(isMutation('\n\tmutation\n{ test }')).toBe(true);
+    });
+
+    it('should return false for query operations', () => {
+      expect(isMutation('query { users { id } }')).toBe(false);
+      expect(isMutation('{ users { id } }')).toBe(false);
+      expect(isMutation('subscription { userUpdated { id } }')).toBe(false);
+    });
+
+    it('should return false for invalid inputs', () => {
+      expect(isMutation('')).toBe(false);
+      expect(isMutation('   ')).toBe(false);
+      expect(isMutation('not a query')).toBe(false);
+    });
+
+    it('should be case insensitive', () => {
+      expect(isMutation('MUTATION { test }')).toBe(true);
+      expect(isMutation('Mutation { test }')).toBe(true);
     });
   });
 
