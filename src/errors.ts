@@ -16,11 +16,17 @@ export class SdkError extends Error {
   public readonly cause?: unknown;
 
   /**
+   * Request context for debugging
+   */
+  public readonly context?: ErrorContext;
+
+  /**
    * Creates a new SdkError instance
    * @param message - The error message
    * @param cause - Optional underlying cause of the error
+   * @param context - Optional request context for debugging
    */
-  constructor(message: string, cause?: unknown) {
+  constructor(message: string, cause?: unknown, context?: ErrorContext) {
     super(message);
 
     // Set the error name to the class name
@@ -46,6 +52,16 @@ export class SdkError extends Error {
         configurable: false,
       });
     }
+
+    // Store the context if provided
+    if (context !== undefined) {
+      Object.defineProperty(this, 'context', {
+        value: context,
+        writable: false,
+        enumerable: false,
+        configurable: false,
+      });
+    }
   }
 
   /**
@@ -62,6 +78,13 @@ export class SdkError extends Error {
 
     if (this.cause !== undefined) {
       result.cause = this.cause;
+    }
+
+    if (this.context !== undefined) {
+      result.context = {
+        ...this.context,
+        timestamp: this.context.timestamp.toISOString(),
+      };
     }
 
     return result;
@@ -126,9 +149,16 @@ export class NetworkError extends SdkError {
    * @param statusCode - Optional HTTP status code
    * @param requestId - Optional request ID for tracing
    * @param cause - Optional underlying cause of the error
+   * @param context - Optional request context for debugging
    */
-  constructor(message: string, statusCode?: number, requestId?: string, cause?: unknown) {
-    super(message, cause);
+  constructor(
+    message: string,
+    statusCode?: number,
+    requestId?: string,
+    cause?: unknown,
+    context?: ErrorContext
+  ) {
+    super(message, cause, context);
 
     Object.defineProperty(this, 'statusCode', {
       value: statusCode,
@@ -225,14 +255,16 @@ export class GraphQLError extends SdkError {
    * @param path - Path array showing where the error occurred
    * @param extensions - Extensions object with additional metadata
    * @param cause - Optional underlying cause of the error
+   * @param context - Optional request context for debugging
    */
   constructor(
     message: string,
     path?: GraphQLErrorPath,
     extensions?: GraphQLErrorExtensions,
-    cause?: unknown
+    cause?: unknown,
+    context?: ErrorContext
   ) {
-    super(message, cause);
+    super(message, cause, context);
 
     Object.defineProperty(this, 'code', {
       value: extensions?.code,
@@ -319,15 +351,17 @@ export class ResponseError extends SdkError {
    * @param contentType - Content type of the response
    * @param requestId - Optional request ID for tracing
    * @param cause - Optional underlying cause of the error
+   * @param context - Optional request context for debugging
    */
   constructor(
     message: string,
     statusCode: number,
     contentType?: string,
     requestId?: string,
-    cause?: unknown
+    cause?: unknown,
+    context?: ErrorContext
   ) {
-    super(message, cause);
+    super(message, cause, context);
 
     Object.defineProperty(this, 'statusCode', {
       value: statusCode,
@@ -376,17 +410,56 @@ export class ResponseError extends SdkError {
  * Request context for error debugging
  */
 export interface ErrorContext {
+  /** Unique identifier for the request */
   requestId?: string;
+  /** GraphQL operation name */
   operationName?: string;
+  /** Request variables (sanitized) */
   variables?: Record<string, any>;
+  /** Timestamp when the error occurred */
   timestamp: Date;
+  /** API endpoint URL */
   endpoint?: string;
+  /** HTTP method used */
+  method?: string;
+  /** Response status code if available */
+  statusCode?: number;
+  /** Duration of the request in milliseconds */
+  duration?: number;
+  /** User agent string */
+  userAgent?: string;
 }
 
 /**
  * Utility functions for error detection and transformation
  */
 export class ErrorUtils {
+  /**
+   * Creates error context from request information
+   */
+  static createErrorContext(options: {
+    requestId?: string;
+    operationName?: string;
+    variables?: Record<string, any>;
+    endpoint?: string;
+    method?: string;
+    statusCode?: number;
+    duration?: number;
+    userAgent?: string;
+  }): ErrorContext {
+    return {
+      requestId: options.requestId || this.generateRequestId(),
+      operationName: options.operationName,
+      variables: options.variables ? this.sanitizeVariables(options.variables) : undefined,
+      timestamp: new Date(),
+      endpoint: options.endpoint,
+      method: options.method || 'POST',
+      statusCode: options.statusCode,
+      duration: options.duration,
+      userAgent: options.userAgent,
+    };
+  }
+
   /**
    * Filters sensitive data from variables for error context
    */
@@ -395,16 +468,47 @@ export class ErrorUtils {
       return {};
     }
 
-    const sensitiveFields = /password|secret|token|key|credential|auth/i;
+    return this.sanitizeObject(variables);
+  }
+
+  /**
+   * Recursively sanitizes an object, removing sensitive data
+   */
+  private static sanitizeObject(obj: Record<string, any>, depth = 0): Record<string, any> {
+    // Prevent infinite recursion
+    if (depth > 10) {
+      return { '[MAX_DEPTH_REACHED]': true };
+    }
+
+    const sensitiveFields =
+      /password|secret|token|key|credential|auth|apikey|api_key|access_token|refresh_token|bearer|authorization|cvv|cvc|ssn|social|pin/i;
     const sanitized: Record<string, any> = {};
 
-    for (const [key, value] of Object.entries(variables)) {
-      if (sensitiveFields.test(key)) {
-        sanitized[key] = '[REDACTED]';
-      } else if (value && typeof value === 'object') {
-        sanitized[key] = this.sanitizeVariables(value);
-      } else {
-        sanitized[key] = value;
+    for (const [key, value] of Object.entries(obj)) {
+      try {
+        if (sensitiveFields.test(key)) {
+          sanitized[key] = '[REDACTED]';
+        } else if (value === null || value === undefined) {
+          sanitized[key] = value;
+        } else if (Array.isArray(value)) {
+          // Sanitize arrays
+          sanitized[key] = value.map((item) => {
+            if (typeof item === 'object' && item !== null) {
+              return this.sanitizeObject(item, depth + 1);
+            }
+            return item;
+          });
+        } else if (typeof value === 'object') {
+          sanitized[key] = this.sanitizeObject(value, depth + 1);
+        } else if (typeof value === 'string' && value.length > 1000) {
+          // Truncate very long strings
+          sanitized[key] = `${value.substring(0, 1000)}... [TRUNCATED]`;
+        } else {
+          sanitized[key] = value;
+        }
+      } catch {
+        // If we can't sanitize a value, mark it as unsanitizable
+        sanitized[key] = '[UNSANITIZABLE]';
       }
     }
 
@@ -412,9 +516,44 @@ export class ErrorUtils {
   }
 
   /**
+   * Safely stringifies a value for logging
+   */
+  static safeStringify(value: any, maxLength = 5000): string {
+    try {
+      const stringified = JSON.stringify(value, null, 2);
+      if (stringified.length > maxLength) {
+        return `${stringified.substring(0, maxLength)}... [TRUNCATED]`;
+      }
+      return stringified;
+    } catch {
+      return '[UNSTRINGIFIABLE]';
+    }
+  }
+
+  /**
    * Generates a unique request ID for tracking
    */
   static generateRequestId(): string {
     return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Extracts operation name from GraphQL query
+   */
+  static extractOperationName(query: string): string | undefined {
+    try {
+      // Simple regex to extract operation name
+      const match = query.match(/(?:query|mutation|subscription)\s+(\w+)/i);
+      return match ? match[1] : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Measures execution duration for request context
+   */
+  static measureDuration(startTime: number): number {
+    return Date.now() - startTime;
   }
 }

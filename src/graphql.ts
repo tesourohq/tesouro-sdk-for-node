@@ -6,7 +6,7 @@
  */
 
 import { makeRequest, type RequestOptions, type HttpResponse } from './request';
-import { GraphQLError } from './errors';
+import { GraphQLError, ErrorUtils, type ErrorContext } from './errors';
 
 /**
  * GraphQL request variables type
@@ -82,12 +82,16 @@ export async function makeGraphQLRequest<T = unknown>(
   options: GraphQLRequestOptions = {}
 ): Promise<GraphQLResult<T>> {
   const { variables, operationName, ...requestOptions } = options;
+  const startTime = Date.now();
+
+  // Extract operation name from query if not provided
+  const finalOperationName = operationName || ErrorUtils.extractOperationName(query);
 
   // Prepare GraphQL request body
   const requestBody: GraphQLRequestBody = {
     query: query.trim(),
     ...(variables && { variables }),
-    ...(operationName && { operationName }),
+    ...(finalOperationName && { operationName: finalOperationName }),
   };
 
   // Set up headers for GraphQL request
@@ -96,6 +100,9 @@ export async function makeGraphQLRequest<T = unknown>(
     Accept: 'application/json',
     ...requestOptions.headers,
   };
+
+  // Generate request ID for tracking
+  const requestId = ErrorUtils.generateRequestId();
 
   try {
     // Make HTTP request
@@ -106,32 +113,57 @@ export async function makeGraphQLRequest<T = unknown>(
       body: JSON.stringify(requestBody),
     });
 
-    // Extract request ID from response
-    const requestId =
+    const duration = ErrorUtils.measureDuration(startTime);
+
+    // Extract request ID from response (prefer server-provided ID)
+    const serverRequestId =
       extractRequestId(httpResponse.response) || extractRequestIdFromHeaders(httpResponse.headers);
+    const finalRequestId = serverRequestId || requestId;
+
+    // Create error context for potential errors
+    const errorContext = ErrorUtils.createErrorContext({
+      requestId: finalRequestId,
+      operationName: finalOperationName,
+      variables,
+      endpoint: url,
+      method: 'POST',
+      statusCode: httpResponse.response.status,
+      duration,
+      userAgent: (headers as any)['User-Agent'],
+    });
 
     // Validate GraphQL response structure
     validateGraphQLResponse(httpResponse.data);
 
     // Check for GraphQL errors
     if (httpResponse.data.errors && httpResponse.data.errors.length > 0) {
-      throw createGraphQLError(httpResponse.data.errors[0], requestId, operationName);
+      throw createGraphQLError(httpResponse.data.errors[0], errorContext);
     }
 
     // Ensure we have data
     if (httpResponse.data.data === undefined) {
-      throw new GraphQLError('GraphQL response missing data field', undefined, {
-        code: 'MISSING_DATA',
-      });
+      throw new GraphQLError(
+        'GraphQL response missing data field',
+        undefined,
+        { code: 'MISSING_DATA' },
+        undefined,
+        errorContext
+      );
     }
 
     return {
       data: httpResponse.data.data,
       response: httpResponse,
-      requestId,
+      requestId: finalRequestId,
     };
   } catch (error) {
-    // Re-throw all errors as-is (GraphQL errors already have proper context)
+    // If it's already one of our errors, re-throw as-is
+    if (error instanceof GraphQLError) {
+      throw error;
+    }
+
+    // For other errors, just re-throw as-is
+    // NetworkError and other errors already have their own context handling
     throw error;
   }
 }
@@ -230,25 +262,20 @@ function validateGraphQLResponse(response: unknown): asserts response is GraphQL
 }
 
 /**
- * Creates a GraphQLError from a raw GraphQL error
+ * Creates a GraphQLError from a raw GraphQL error with enhanced context
  *
  * @param rawError - Raw GraphQL error from server
- * @param requestId - Request ID for tracing
- * @param operationName - Operation name for context
+ * @param context - Error context for debugging
  * @returns GraphQLError instance
  */
-function createGraphQLError(
-  rawError: RawGraphQLError,
-  requestId?: string,
-  operationName?: string
-): GraphQLError {
+function createGraphQLError(rawError: RawGraphQLError, context: ErrorContext): GraphQLError {
   const extensions = {
     ...rawError.extensions,
-    ...(requestId && { requestId }),
-    ...(operationName && { operationName }),
+    requestId: context.requestId,
+    operationName: context.operationName,
   };
 
-  return new GraphQLError(rawError.message, rawError.path, extensions);
+  return new GraphQLError(rawError.message, rawError.path, extensions, undefined, context);
 }
 
 /**
