@@ -42,7 +42,7 @@ describe('ApiClient', () => {
           clientId: 'test-client-id',
           clientSecret: 'test-client-secret',
         },
-        'https://api.example.com/oauth/token'
+        'https://api.example.com/openid/connect/token'
       );
     });
 

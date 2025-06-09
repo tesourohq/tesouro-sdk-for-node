@@ -12,7 +12,12 @@ import {
   type GraphQLResult,
   isMutation,
 } from './graphql';
-import { type ClientConfig, validateClientConfig, applyConfigDefaults } from './types';
+import {
+  type ClientConfig,
+  validateClientConfig,
+  applyConfigDefaults,
+  deriveTokenEndpoint,
+} from './types';
 
 // Re-export types that generated code needs
 export type { GraphQLResult } from './graphql';
@@ -66,7 +71,7 @@ export class ApiClient {
     };
 
     // Derive token endpoint from GraphQL endpoint if not provided
-    const tokenEndpoint = config.tokenEndpoint || this.deriveTokenEndpoint(this.config.endpoint);
+    const tokenEndpoint = config.tokenEndpoint || deriveTokenEndpoint(this.config.endpoint);
     this.authManager = new AuthManager(credentials, tokenEndpoint);
 
     // Set initial access token if provided
@@ -299,27 +304,6 @@ export class ApiClient {
         throw error;
       }
       throw new SdkError('Failed to refresh access token', error);
-    }
-  }
-
-  /**
-   * Derives the OAuth token endpoint from a GraphQL endpoint URL
-   *
-   * @param graphqlEndpoint - GraphQL endpoint URL
-   * @returns Token endpoint URL
-   * @private
-   */
-  private deriveTokenEndpoint(graphqlEndpoint: string): string {
-    try {
-      const url = new URL(graphqlEndpoint);
-      // Replace /graphql with /oauth/token
-      const tokenPath = url.pathname.replace(/\/graphql\/?$/, '/oauth/token');
-      url.pathname = tokenPath;
-      return url.toString();
-    } catch {
-      // Fallback: append /oauth/token to the base URL
-      const baseUrl = graphqlEndpoint.replace(/\/graphql\/?$/, '');
-      return `${baseUrl}/oauth/token`;
     }
   }
 

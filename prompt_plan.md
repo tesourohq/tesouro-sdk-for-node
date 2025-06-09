@@ -561,7 +561,7 @@ Create .npmignore to exclude:
 Test the package with npm pack to verify correct files are included.
 ```
 
-### Step 23: Integration Test Suite
+### Step 23: Integration Test Suite ✅ **COMPLETED**
 **Goal**: Create comprehensive integration tests that verify the full SDK flow.
 
 ```text
@@ -584,6 +584,38 @@ Use mock servers or interceptors to:
 The tests should verify the SDK works correctly as a complete system rather than testing individual components.
 
 This ensures the SDK works correctly when all components are integrated.
+```
+
+### Step 23 Part Two: Integration Test Refactoring ✅ **COMPLETED**
+**Goal**: Refactor integration tests to properly test SDK behavior at the right abstraction level.
+
+```text
+The current integration tests mock at the wrong level (individual HTTP functions) rather than testing the actual SDK integration. Refactor the approach to create true integration tests.
+
+Create a proper integration test strategy:
+- Mock at the network boundary using tools like nock or MSW (Mock Service Worker)
+- Test actual SDK methods with real GraphQL queries/mutations from the schema
+- Verify complete authentication flows including token refresh
+- Test error handling and recovery scenarios end-to-end
+- Validate concurrent request handling and race conditions
+- Test timeout and network error scenarios
+
+Implementation approach:
+- Replace low-level function mocking with HTTP request interception
+- Use actual paymentTransactionSummaries and authorizeCustomerInitiatedTransaction operations
+- Create realistic mock responses based on the actual schema types
+- Test the public SDK API surface rather than internal implementation details
+- Verify authentication state management across different scenarios
+- Test retry logic and error recovery mechanisms
+
+The tests should verify that:
+- SDK can authenticate and maintain tokens properly
+- Real GraphQL operations work with proper type safety
+- Error handling works correctly for both network and GraphQL errors
+- Concurrent operations don't interfere with authentication
+- The SDK gracefully handles various failure scenarios
+
+This creates true integration tests that verify the SDK works as a complete system.
 ```
 
 ### Step 24: Code Generation Error Mapping
