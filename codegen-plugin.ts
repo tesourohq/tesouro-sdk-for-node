@@ -358,20 +358,67 @@ function generateObjectFieldSelection(
   
   // Include all scalar and enum fields
   for (const [fieldName, fieldDef] of Object.entries(fields)) {
-    const fieldType = getNamedType(fieldDef.type);
+    // Check for list types FIRST, but need to handle NonNull wrappers
+    let currentType = fieldDef.type;
     
-    if (isScalarType(fieldType) || isEnumType(fieldType)) {
-      selectedFields.push(fieldName);
-    } else if (isObjectType(fieldType)) {
-      // For nested object types, recursively generate selections
-      const nestedSelections = generateObjectFieldSelection(
-        fieldType, 
-        schema, 
-        config, 
-        newVisitedTypes, 
-        depth + 1
-      );
-      selectedFields.push(`${fieldName} {\n          ${nestedSelections.replace(/\n/g, '\n          ')}\n        }`);
+    // Unwrap NonNull to get to the actual type
+    if (isNonNullType(currentType)) {
+      currentType = currentType.ofType;
+    }
+    
+    if (isListType(currentType)) {
+      // Handle list/array types - get the inner type
+      const innerType = getNamedType(fieldDef.type);
+      
+      // Interface type detection working correctly for PaymentTransaction
+      
+      if (isObjectType(innerType)) {
+        // For arrays of objects, recursively generate selections for the inner type
+        const nestedSelections = generateObjectFieldSelection(
+          innerType, 
+          schema, 
+          config, 
+          newVisitedTypes, 
+          depth + 1
+        );
+        selectedFields.push(`${fieldName} {\n          ${nestedSelections.replace(/\n/g, '\n          ')}\n        }`);
+      } else if (isInterfaceType(innerType)) {
+        // For arrays of interfaces, generate selections for the interface
+        const nestedSelections = generateUnionInterfaceFieldSelection(
+          innerType, 
+          schema, 
+          config
+        );
+        selectedFields.push(`${fieldName} {\n          ${nestedSelections.replace(/\n/g, '\n          ')}\n        }`);
+      } else {
+        // For arrays of scalars/enums, just include the field name
+        selectedFields.push(fieldName);
+      }
+    } else {
+      // For non-list types, get the named type and check what it is
+      const fieldType = getNamedType(fieldDef.type);
+      
+      if (isScalarType(fieldType) || isEnumType(fieldType)) {
+        selectedFields.push(fieldName);
+      } else if (isObjectType(fieldType)) {
+        // For nested object types, recursively generate selections
+        const nestedSelections = generateObjectFieldSelection(
+          fieldType, 
+          schema, 
+          config, 
+          newVisitedTypes, 
+          depth + 1
+        );
+        selectedFields.push(`${fieldName} {\n          ${nestedSelections.replace(/\n/g, '\n          ')}\n        }`);
+      } else if (isInterfaceType(fieldType)) {
+        // For interface types, generate selections for the interface
+        const nestedSelections = generateUnionInterfaceFieldSelection(
+          fieldType, 
+          schema, 
+          config
+        );
+        selectedFields.push(`${fieldName} {\n          ${nestedSelections.replace(/\n/g, '\n          ')}\n        }`);
+      }
     }
   }
   
@@ -547,7 +594,7 @@ ${errorMap}
     }
 
     const typeName = error.__typename;
-    if (!typeName || !this.errorTypeMap[typeName]) {
+    if (!typeName || !(typeName in this.errorTypeMap)) {
       return error;
     }
 

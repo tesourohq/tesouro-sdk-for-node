@@ -8,7 +8,7 @@ generates:
       # Scalar type mappings
       scalars:
         DateTime: Date
-        Date: Date
+        Date: string  # Date-only format (YYYY-MM-DD)
         ZonedDateTime: Date
         LocalTime: string
         TimeSpan: string

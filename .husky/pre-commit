@@ -1,5 +1,9 @@
 echo "🔍 Running pre-commit hook: linting, formatting, and full test coverage verification"
 
+# Clean any stale build artifacts and test files
+echo "🧹 Cleaning stale build artifacts and test files..."
+npm run clean
+
 # Run lint-staged for modified files
 npx lint-staged
 

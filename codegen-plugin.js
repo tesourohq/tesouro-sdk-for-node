@@ -23,8 +23,10 @@ const plugin = (schema, documents, config) => {
     };
     // Extract operations from the schema
     const operations = extractOperationsFromSchema(schema, pluginConfig);
+    // Extract error types from the schema
+    const errorTypes = extractErrorTypesFromSchema(schema);
     // Generate the output code
-    return generateClientMethods(operations, pluginConfig);
+    return generateClientMethods(operations, errorTypes, pluginConfig);
 };
 exports.plugin = plugin;
 /**
@@ -58,6 +60,68 @@ function extractOperationsFromSchema(schema, config) {
         }
     }
     return operations;
+}
+/**
+ * Extracts error type information from the GraphQL schema
+ */
+function extractErrorTypesFromSchema(schema) {
+    const errorTypes = [];
+    const typeMap = schema.getTypeMap();
+    // Base error interface names we're looking for
+    const baseErrorInterfaces = ['Error', 'ErrorBase', 'IGraphQlError'];
+    for (const [typeName, type] of Object.entries(typeMap)) {
+        // Skip built-in types
+        if (typeName.startsWith('_'))
+            continue;
+        // Only process object types that look like errors
+        if ((0, graphql_1.isObjectType)(type) && (typeName.endsWith('Error') || baseErrorInterfaces.includes(typeName))) {
+            const errorInfo = createErrorTypeInfo(type, schema);
+            if (errorInfo) {
+                errorTypes.push(errorInfo);
+            }
+        }
+    }
+    return errorTypes;
+}
+/**
+ * Creates error type information from a GraphQL object type
+ */
+function createErrorTypeInfo(type, schema) {
+    const fields = type.getFields();
+    const errorFields = [];
+    // Determine base type by examining implemented interfaces
+    let baseType = 'unknown';
+    const interfaces = type.getInterfaces();
+    for (const iface of interfaces) {
+        if (iface.name === 'Error') {
+            baseType = 'Error';
+        }
+        else if (iface.name === 'ErrorBase') {
+            baseType = 'ErrorBase';
+        }
+        else if (iface.name === 'IGraphQlError') {
+            baseType = 'IGraphQlError';
+            break; // IGraphQlError is most specific
+        }
+    }
+    // Extract field information
+    for (const [fieldName, field] of Object.entries(fields)) {
+        const fieldType = field.type;
+        const isRequired = (0, graphql_1.isNonNullType)(fieldType);
+        const namedType = (0, graphql_1.getNamedType)(fieldType);
+        errorFields.push({
+            name: fieldName,
+            type: extractResultTypeName(fieldType.toString()),
+            required: isRequired,
+            description: field.description,
+        });
+    }
+    return {
+        name: type.name,
+        baseType,
+        description: type.description,
+        fields: errorFields,
+    };
 }
 /**
  * Creates operation information from a GraphQL field
@@ -146,14 +210,47 @@ function generateObjectFieldSelection(objectType, schema, config, visitedTypes =
     newVisitedTypes.add(objectType.name);
     // Include all scalar and enum fields
     for (const [fieldName, fieldDef] of Object.entries(fields)) {
-        const fieldType = (0, graphql_1.getNamedType)(fieldDef.type);
-        if ((0, graphql_1.isScalarType)(fieldType) || (0, graphql_1.isEnumType)(fieldType)) {
-            selectedFields.push(fieldName);
+        // Check for list types FIRST, but need to handle NonNull wrappers
+        let currentType = fieldDef.type;
+        // Unwrap NonNull to get to the actual type
+        if ((0, graphql_1.isNonNullType)(currentType)) {
+            currentType = currentType.ofType;
         }
-        else if ((0, graphql_1.isObjectType)(fieldType)) {
-            // For nested object types, recursively generate selections
-            const nestedSelections = generateObjectFieldSelection(fieldType, schema, config, newVisitedTypes, depth + 1);
-            selectedFields.push(`${fieldName} {\n          ${nestedSelections.replace(/\n/g, '\n          ')}\n        }`);
+        if ((0, graphql_1.isListType)(currentType)) {
+            // Handle list/array types - get the inner type
+            const innerType = (0, graphql_1.getNamedType)(fieldDef.type);
+            // Interface type detection working correctly for PaymentTransaction
+            if ((0, graphql_1.isObjectType)(innerType)) {
+                // For arrays of objects, recursively generate selections for the inner type
+                const nestedSelections = generateObjectFieldSelection(innerType, schema, config, newVisitedTypes, depth + 1);
+                selectedFields.push(`${fieldName} {\n          ${nestedSelections.replace(/\n/g, '\n          ')}\n        }`);
+            }
+            else if ((0, graphql_1.isInterfaceType)(innerType)) {
+                // For arrays of interfaces, generate selections for the interface
+                const nestedSelections = generateUnionInterfaceFieldSelection(innerType, schema, config);
+                selectedFields.push(`${fieldName} {\n          ${nestedSelections.replace(/\n/g, '\n          ')}\n        }`);
+            }
+            else {
+                // For arrays of scalars/enums, just include the field name
+                selectedFields.push(fieldName);
+            }
+        }
+        else {
+            // For non-list types, get the named type and check what it is
+            const fieldType = (0, graphql_1.getNamedType)(fieldDef.type);
+            if ((0, graphql_1.isScalarType)(fieldType) || (0, graphql_1.isEnumType)(fieldType)) {
+                selectedFields.push(fieldName);
+            }
+            else if ((0, graphql_1.isObjectType)(fieldType)) {
+                // For nested object types, recursively generate selections
+                const nestedSelections = generateObjectFieldSelection(fieldType, schema, config, newVisitedTypes, depth + 1);
+                selectedFields.push(`${fieldName} {\n          ${nestedSelections.replace(/\n/g, '\n          ')}\n        }`);
+            }
+            else if ((0, graphql_1.isInterfaceType)(fieldType)) {
+                // For interface types, generate selections for the interface
+                const nestedSelections = generateUnionInterfaceFieldSelection(fieldType, schema, config);
+                selectedFields.push(`${fieldName} {\n          ${nestedSelections.replace(/\n/g, '\n          ')}\n        }`);
+            }
         }
     }
     return selectedFields.join('\n        ');
@@ -178,12 +275,15 @@ function generateUnionInterfaceFieldSelection(type, schema, config) {
 /**
  * Generates the client methods code
  */
-function generateClientMethods(operations, config) {
-    const imports = generateImports(operations, config);
+function generateClientMethods(operations, errorTypes, config) {
+    const imports = generateImports(operations, errorTypes, config);
     const methods = operations.map(op => generateMethodCode(op, config)).join('\n\n');
+    const errorUtilities = generateErrorUtilities(errorTypes);
     // Generate a mixin class that extends ApiClient
     return `${imports}
 import { ApiClient } from '${config.clientImportPath}';
+
+${errorUtilities}
 
 /**
  * Generated client methods for GraphQL operations
@@ -201,7 +301,7 @@ export type TypedApiClient = GeneratedApiClient;`;
 /**
  * Generates import statements for the generated code
  */
-function generateImports(operations, config) {
+function generateImports(operations, errorTypes, config) {
     // Get unique type names needed for imports (excluding 'never')
     const typeNames = new Set();
     operations.forEach(op => {
@@ -212,10 +312,164 @@ function generateImports(operations, config) {
             typeNames.add(op.resultType);
         }
     });
+    // Add error types to imports
+    errorTypes.forEach(errorType => {
+        typeNames.add(errorType.name);
+    });
     const typeImports = Array.from(typeNames).join(', ');
     return `
 import type { ClientRequestOptions, GraphQLResult } from '${config.clientImportPath}';
 import type { ${typeImports} } from './types';
+  `.trim();
+}
+/**
+ * Generates error handling utilities based on schema error types
+ */
+function generateErrorUtilities(errorTypes) {
+    const errorTypeConstants = generateErrorTypeConstants(errorTypes);
+    const typeGuards = generateErrorTypeGuards(errorTypes);
+    const errorFactory = generateErrorFactory(errorTypes);
+    const errorUtils = generateErrorUtils(errorTypes);
+    return `
+// Error handling utilities generated from GraphQL schema
+
+${errorTypeConstants}
+
+${typeGuards}
+
+${errorFactory}
+
+${errorUtils}
+  `.trim();
+}
+/**
+ * Generates error type constants
+ */
+function generateErrorTypeConstants(errorTypes) {
+    const constants = errorTypes.map(error => `  ${error.name.toUpperCase()}: '${error.name}'`).join(',\n');
+    return `
+/**
+ * GraphQL Error Type Constants
+ */
+export const GraphQLErrorTypes = {
+${constants}
+} as const;
+
+export type GraphQLErrorType = (typeof GraphQLErrorTypes)[keyof typeof GraphQLErrorTypes];
+  `.trim();
+}
+/**
+ * Generates type guard functions for error types
+ */
+function generateErrorTypeGuards(errorTypes) {
+    const guards = errorTypes.map(error => `
+/**
+ * Type guard for ${error.name}
+ */
+export function is${error.name}(error: any): error is ${error.name} {
+  return error && typeof error === 'object' && error.__typename === '${error.name}';
+}`).join('\n');
+    return guards;
+}
+/**
+ * Generates error factory for transforming GraphQL errors
+ */
+function generateErrorFactory(errorTypes) {
+    const errorMap = errorTypes.map(error => `  [GraphQLErrorTypes.${error.name.toUpperCase()}]: '${error.name}'`).join(',\n');
+    return `
+/**
+ * Factory for creating typed errors from GraphQL error responses
+ */
+export class GraphQLErrorFactory {
+  private static readonly errorTypeMap = {
+${errorMap}
+  };
+
+  /**
+   * Creates a typed error object from a GraphQL error response
+   */
+  static createTypedError(error: any): any {
+    if (!error || typeof error !== 'object') {
+      return error;
+    }
+
+    const typeName = error.__typename;
+    if (!typeName || !(typeName in this.errorTypeMap)) {
+      return error;
+    }
+
+    // Return the error with proper typing
+    return error;
+  }
+
+  /**
+   * Checks if an error is a known GraphQL error type
+   */
+  static isKnownErrorType(typename: string): boolean {
+    return Object.values(this.errorTypeMap).includes(typename);
+  }
+
+  /**
+   * Transforms an array of GraphQL errors to typed errors
+   */
+  static transformErrors(errors: any[]): any[] {
+    if (!Array.isArray(errors)) {
+      return [];
+    }
+    
+    return errors.map(error => this.createTypedError(error));
+  }
+}
+  `.trim();
+}
+/**
+ * Generates error utility functions
+ */
+function generateErrorUtils(errorTypes) {
+    const hasErrorChecks = errorTypes.map(error => `
+  /**
+   * Checks if response contains ${error.name}
+   */
+  static has${error.name}(errors?: any[]): boolean {
+    return Array.isArray(errors) && errors.some(error => is${error.name}(error));
+  }`).join('\n');
+    return `
+/**
+ * Utility functions for error handling
+ */
+export class ErrorUtils {
+  /**
+   * Checks if response contains any known error types
+   */
+  static hasKnownErrors(errors?: any[]): boolean {
+    return Array.isArray(errors) && errors.some(error => 
+      error && error.__typename && GraphQLErrorFactory.isKnownErrorType(error.__typename)
+    );
+  }
+
+${hasErrorChecks}
+
+  /**
+   * Filters errors by type
+   */
+  static filterErrorsByType<T>(errors: any[], typeName: string): T[] {
+    if (!Array.isArray(errors)) {
+      return [];
+    }
+    
+    return errors.filter(error => 
+      error && error.__typename === typeName
+    ) as T[];
+  }
+
+  /**
+   * Gets first error of specific type
+   */
+  static getFirstErrorOfType<T>(errors: any[], typeName: string): T | undefined {
+    const filtered = this.filterErrorsByType<T>(errors, typeName);
+    return filtered.length > 0 ? filtered[0] : undefined;
+  }
+}
   `.trim();
 }
 /**

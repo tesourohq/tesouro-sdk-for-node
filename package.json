@@ -26,7 +26,7 @@
     "lint:fix": "eslint src/**/*.ts --fix",
     "format": "prettier --write src/**/*.ts",
     "format:check": "prettier --check src/**/*.ts",
-    "clean": "rm -rf dist coverage .nyc_output",
+    "clean": "rm -rf dist coverage .nyc_output && find tests -name '*.js' -type f -delete && find tests -name '*.js.map' -type f -delete",
     "prebuild": "npm run clean",
     "prepare": "husky",
     "prepublishOnly": "npm run clean && npm run build && npm run test:coverage",

@@ -43,3 +43,8 @@ logs/
 
 # Generated code
 src/generated/
+
+# Examples and test projects (contain secrets)
+examples/test-project/.env
+examples/test-project/node_modules/
+examples/test-project/dist/

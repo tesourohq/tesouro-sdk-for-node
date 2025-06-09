@@ -1,0 +1,28 @@
+{
+  "name": "tesouro-sdk-test-project",
+  "version": "1.0.0",
+  "description": "Test project for Tesouro SDK examples",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test:basic": "tsx src/basic-setup.ts",
+    "test:query": "tsx src/simple-query.ts",
+    "test:mutation": "tsx src/mutation-example.ts",
+    "test:auth": "tsx src/auth-example.ts"
+  },
+  "dependencies": {
+    "@tesouro/tesouro-sdk-for-node": "file:../../"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "dotenv": "^16.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
