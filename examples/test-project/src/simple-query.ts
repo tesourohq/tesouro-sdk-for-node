@@ -153,7 +153,66 @@ async function testPaymentTransactionsQuery() {
       console.log('❌ Custom headers query failed:', error);
     }
 
-    console.log('\n🎉 Payment transactions query tests completed!');
+    console.log('\n---\n');
+
+    // Test 3: Invalid filter values (error handling demonstration)
+    console.log('📝 Test 3: Invalid filter values (error demonstration)...');
+    try {
+      // This will demonstrate API validation errors by providing incomplete date range
+      // The API requires both gte and lte for transactionActivityDate, but we'll only provide lte
+      const invalidWhere: PaymentTransactionFilterInput = {
+        transactionActivityDate: {
+          lte: new Date().toISOString().split('T')[0] // Only providing lte, missing required gte
+          // Missing gte field - this should cause a validation error
+        }
+      };
+
+      const variables: QueryPaymentTransactionsArgs = {
+        input: {
+          paging: { skip: 0, take: 10 },
+          where: invalidWhere
+        }
+      };
+
+      console.log('🚫 Attempting query with incomplete date range (missing gte field)...');
+      console.log('📋 Filter being sent:', JSON.stringify(invalidWhere, null, 2));
+      
+      const result = await client.paymentTransactions(variables);
+      
+      // This should not execute due to API validation error
+      console.log('❓ Unexpected success - API accepted incomplete date range:', result.data);
+      
+    } catch (error) {
+      console.log('✅ Expected error caught - demonstrating API validation:');
+      
+      if (error instanceof Error) {
+        console.log(`  🔍 Error Type: ${error.constructor.name}`);
+        console.log(`  📝 Error Message: ${error.message}`);
+        
+        // Check if it's a validation error related to date range
+        if (error.message.includes('gte') || error.message.includes('date') || error.message.includes('range')) {
+          console.log('  ✅ This is a date range validation error as expected');
+          console.log('  📚 This demonstrates how the SDK handles API business rule violations');
+        }
+        
+        // Show additional error properties if available (GraphQL errors)
+        if ('errors' in error && Array.isArray((error as any).errors)) {
+          console.log('  📋 API Validation Errors:');
+          (error as any).errors.forEach((err: any, index: number) => {
+            console.log(`    ${index + 1}. ${err.message || err}`);
+            if (err.extensions) {
+              console.log(`       Extensions:`, JSON.stringify(err.extensions, null, 6));
+            }
+          });
+        }
+        
+        console.log('  💡 Tip: Always provide both gte and lte when filtering by transactionActivityDate');
+      } else {
+        console.log('  ❓ Unknown error type:', error);
+      }
+    }
+
+    console.log('\n🎉 All payment transaction query tests completed!');
 
   } catch (error) {
     console.error('❌ Query test setup failed:', error);
