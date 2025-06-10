@@ -216,10 +216,14 @@ function generateObjectFieldSelection(objectType, schema, config, visitedTypes =
         if ((0, graphql_1.isNonNullType)(currentType)) {
             currentType = currentType.ofType;
         }
+        // Check if the field type is a list type (handles both nullable and non-nullable lists)
+        // For `errors: [Error!]` - currentType is already the list type  
+        // For `errors: [Error!]!` - currentType after unwrapping NonNull is the list type
         if ((0, graphql_1.isListType)(currentType)) {
             // Handle list/array types - get the inner type
             const innerType = (0, graphql_1.getNamedType)(fieldDef.type);
-            // Interface type detection working correctly for PaymentTransaction
+            
+            
             if ((0, graphql_1.isObjectType)(innerType)) {
                 // For arrays of objects, recursively generate selections for the inner type
                 const nestedSelections = generateObjectFieldSelection(innerType, schema, config, newVisitedTypes, depth + 1);
@@ -227,6 +231,11 @@ function generateObjectFieldSelection(objectType, schema, config, visitedTypes =
             }
             else if ((0, graphql_1.isInterfaceType)(innerType)) {
                 // For arrays of interfaces, generate selections for the interface
+                const nestedSelections = generateUnionInterfaceFieldSelection(innerType, schema, config);
+                selectedFields.push(`${fieldName} {\n          ${nestedSelections.replace(/\n/g, '\n          ')}\n        }`);
+            }
+            else if ((0, graphql_1.isUnionType)(innerType)) {
+                // For arrays of unions, generate selections for the union
                 const nestedSelections = generateUnionInterfaceFieldSelection(innerType, schema, config);
                 selectedFields.push(`${fieldName} {\n          ${nestedSelections.replace(/\n/g, '\n          ')}\n        }`);
             }
@@ -251,6 +260,11 @@ function generateObjectFieldSelection(objectType, schema, config, visitedTypes =
                 const nestedSelections = generateUnionInterfaceFieldSelection(fieldType, schema, config);
                 selectedFields.push(`${fieldName} {\n          ${nestedSelections.replace(/\n/g, '\n          ')}\n        }`);
             }
+            else if ((0, graphql_1.isUnionType)(fieldType)) {
+                // For union types, generate selections for the union
+                const nestedSelections = generateUnionInterfaceFieldSelection(fieldType, schema, config);
+                selectedFields.push(`${fieldName} {\n          ${nestedSelections.replace(/\n/g, '\n          ')}\n        }`);
+            }
         }
     }
     return selectedFields.join('\n        ');
@@ -267,6 +281,25 @@ function generateUnionInterfaceFieldSelection(type, schema, config) {
             const fieldType = (0, graphql_1.getNamedType)(fieldDef.type);
             if ((0, graphql_1.isScalarType)(fieldType) || (0, graphql_1.isEnumType)(fieldType)) {
                 selections.push(fieldName);
+            }
+        }
+    }
+    else if ((0, graphql_1.isUnionType)(type)) {
+        // For union types, generate inline fragments for each possible type
+        const possibleTypes = type.getTypes();
+        for (const possibleType of possibleTypes) {
+            if ((0, graphql_1.isObjectType)(possibleType)) {
+                const fields = possibleType.getFields();
+                const typeSelections = ['__typename'];
+                // Add scalar and enum fields from this type
+                for (const [fieldName, fieldDef] of Object.entries(fields)) {
+                    const fieldType = (0, graphql_1.getNamedType)(fieldDef.type);
+                    if ((0, graphql_1.isScalarType)(fieldType) || (0, graphql_1.isEnumType)(fieldType)) {
+                        typeSelections.push(fieldName);
+                    }
+                }
+                // Add inline fragment for this type
+                selections.push(`... on ${possibleType.name} {\n          ${typeSelections.join('\n          ')}\n        }`);
             }
         }
     }

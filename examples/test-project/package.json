@@ -10,7 +10,7 @@
     "dev": "tsx src/index.ts",
     "test:basic": "tsx src/basic-setup.ts",
     "test:query": "tsx src/simple-query.ts",
-    "test:mutation": "tsx src/mutation-example.ts",
+    "test:mutation": "tsx src/mutation-examples.ts",
     "test:auth": "tsx src/auth-example.ts"
   },
   "dependencies": {

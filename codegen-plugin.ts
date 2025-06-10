@@ -366,11 +366,13 @@ function generateObjectFieldSelection(
       currentType = currentType.ofType;
     }
     
+    // Check if the field type is a list type (handles both nullable and non-nullable lists)
+    // For `errors: [Error!]` - currentType is already the list type  
+    // For `errors: [Error!]!` - currentType after unwrapping NonNull is the list type
     if (isListType(currentType)) {
       // Handle list/array types - get the inner type
       const innerType = getNamedType(fieldDef.type);
       
-      // Interface type detection working correctly for PaymentTransaction
       
       if (isObjectType(innerType)) {
         // For arrays of objects, recursively generate selections for the inner type
@@ -384,6 +386,14 @@ function generateObjectFieldSelection(
         selectedFields.push(`${fieldName} {\n          ${nestedSelections.replace(/\n/g, '\n          ')}\n        }`);
       } else if (isInterfaceType(innerType)) {
         // For arrays of interfaces, generate selections for the interface
+        const nestedSelections = generateUnionInterfaceFieldSelection(
+          innerType, 
+          schema, 
+          config
+        );
+        selectedFields.push(`${fieldName} {\n          ${nestedSelections.replace(/\n/g, '\n          ')}\n        }`);
+      } else if (isUnionType(innerType)) {
+        // For arrays of unions, generate selections for the union
         const nestedSelections = generateUnionInterfaceFieldSelection(
           innerType, 
           schema, 
@@ -418,6 +428,14 @@ function generateObjectFieldSelection(
           config
         );
         selectedFields.push(`${fieldName} {\n          ${nestedSelections.replace(/\n/g, '\n          ')}\n        }`);
+      } else if (isUnionType(fieldType)) {
+        // For union types, generate selections for the union
+        const nestedSelections = generateUnionInterfaceFieldSelection(
+          fieldType, 
+          schema, 
+          config
+        );
+        selectedFields.push(`${fieldName} {\n          ${nestedSelections.replace(/\n/g, '\n          ')}\n        }`);
       }
     }
   }
@@ -439,6 +457,27 @@ function generateUnionInterfaceFieldSelection(type: GraphQLUnionType | GraphQLIn
       const fieldType = getNamedType(fieldDef.type);
       if (isScalarType(fieldType) || isEnumType(fieldType)) {
         selections.push(fieldName);
+      }
+    }
+  } else if (isUnionType(type)) {
+    // For union types, generate inline fragments for each possible type
+    const possibleTypes = type.getTypes();
+    
+    for (const possibleType of possibleTypes) {
+      if (isObjectType(possibleType)) {
+        const fields = possibleType.getFields();
+        const typeSelections = ['__typename'];
+        
+        // Add scalar and enum fields from this type
+        for (const [fieldName, fieldDef] of Object.entries(fields)) {
+          const fieldType = getNamedType(fieldDef.type);
+          if (isScalarType(fieldType) || isEnumType(fieldType)) {
+            typeSelections.push(fieldName);
+          }
+        }
+        
+        // Add inline fragment for this type
+        selections.push(`... on ${possibleType.name} {\n          ${typeSelections.join('\n          ')}\n        }`);
       }
     }
   }
