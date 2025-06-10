@@ -5,7 +5,7 @@
  * error handling, and proper NetworkError creation.
  */
 
-import { NetworkError, ResponseError } from './errors';
+import { NetworkError, ResponseError, ErrorUtils } from './errors';
 
 /**
  * HTTP request options interface
@@ -97,7 +97,7 @@ export async function makeRequest<T = unknown>(
           'Failed to parse JSON response',
           response.status,
           contentType,
-          extractRequestId(response),
+          ErrorUtils.extractRequestId(response),
           parseError
         );
       }
@@ -110,7 +110,7 @@ export async function makeRequest<T = unknown>(
 
     // Check for HTTP error status codes
     if (!response.ok) {
-      const requestId = extractRequestId(response);
+      const requestId = ErrorUtils.extractRequestId(response);
       throw new NetworkError(
         `HTTP ${response.status}: ${response.statusText}`,
         response.status,
@@ -164,32 +164,6 @@ export async function makeRequest<T = unknown>(
       error
     );
   }
-}
-
-/**
- * Extracts request ID from response headers for tracing
- *
- * @param response - The HTTP response
- * @returns Request ID if found, undefined otherwise
- */
-function extractRequestId(response: Response): string | undefined {
-  // Common request ID header names
-  const requestIdHeaders = [
-    'x-request-id',
-    'x-trace-id',
-    'x-correlation-id',
-    'request-id',
-    'trace-id',
-  ];
-
-  for (const header of requestIdHeaders) {
-    const value = response.headers.get(header);
-    if (value) {
-      return value;
-    }
-  }
-
-  return undefined;
 }
 
 /**

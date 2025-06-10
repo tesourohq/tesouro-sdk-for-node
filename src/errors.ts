@@ -589,4 +589,48 @@ export class ErrorUtils {
 
     return undefined;
   }
+
+  /**
+   * Extracts request ID from HTTP response headers for tracing
+   *
+   * @param response - HTTP response object or Headers object
+   * @returns Request ID if found, undefined otherwise
+   */
+  static extractRequestId(
+    response: Response | Headers | { headers?: Headers }
+  ): string | undefined {
+    let headers: Headers | undefined;
+
+    if (response instanceof Response) {
+      headers = response.headers;
+    } else if (response instanceof Headers) {
+      headers = response;
+    } else if (response && typeof response === 'object' && 'headers' in response) {
+      // Handle mock objects that have a headers property
+      headers = (response as any).headers;
+    }
+
+    if (!headers || typeof headers.get !== 'function') {
+      return undefined;
+    }
+
+    // TODO: Choose one specific request ID header as we finalize the API response format
+    // Common request ID header names
+    const requestIdHeaders = [
+      'x-request-id',
+      'x-trace-id',
+      'x-correlation-id',
+      'request-id',
+      'trace-id',
+    ];
+
+    for (const header of requestIdHeaders) {
+      const value = headers.get(header);
+      if (value) {
+        return value;
+      }
+    }
+
+    return undefined;
+  }
 }

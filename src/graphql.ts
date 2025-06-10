@@ -116,8 +116,7 @@ export async function makeGraphQLRequest<T = unknown>(
     const duration = ErrorUtils.measureDuration(startTime);
 
     // Extract request ID from response (prefer server-provided ID)
-    const serverRequestId =
-      extractRequestId(httpResponse.response) || extractRequestIdFromHeaders(httpResponse.headers);
+    const serverRequestId = ErrorUtils.extractRequestId(httpResponse);
     const finalRequestId = serverRequestId || requestId;
 
     // Create error context for potential errors
@@ -167,56 +166,6 @@ export async function makeGraphQLRequest<T = unknown>(
     // NetworkError and other errors already have their own context handling
     throw error;
   }
-}
-
-/**
- * Extracts request ID from HTTP response for tracing
- *
- * @param response - HTTP response object
- * @returns Request ID if found
- */
-function extractRequestId(response: Response): string | undefined {
-  const requestIdHeaders = [
-    'x-request-id',
-    'x-trace-id',
-    'x-correlation-id',
-    'request-id',
-    'trace-id',
-  ];
-
-  for (const header of requestIdHeaders) {
-    const value = response.headers.get(header);
-    if (value) {
-      return value;
-    }
-  }
-
-  return undefined;
-}
-
-/**
- * Extracts request ID from Headers object for tracing
- *
- * @param headers - Headers object
- * @returns Request ID if found
- */
-function extractRequestIdFromHeaders(headers: Headers): string | undefined {
-  const requestIdHeaders = [
-    'x-request-id',
-    'x-trace-id',
-    'x-correlation-id',
-    'request-id',
-    'trace-id',
-  ];
-
-  for (const header of requestIdHeaders) {
-    const value = headers.get(header);
-    if (value) {
-      return value;
-    }
-  }
-
-  return undefined;
 }
 
 /**
