@@ -29,6 +29,7 @@ This is a test project for manually testing the Tesouro SDK with real API endpoi
 - `npm run test:mutation` - Tests mutation with error handling
 - `npm run test:auth` - Tests authentication scenarios
 - `npm run test:pagination` - Tests comprehensive pagination patterns (5 different approaches)
+- `npm run test:concurrent` - Tests concurrent request patterns (5 different approaches)
 
 ## Development
 

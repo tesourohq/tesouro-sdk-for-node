@@ -12,7 +12,8 @@
     "test:query": "tsx src/simple-query.ts",
     "test:mutation": "tsx src/mutation-examples.ts",
     "test:auth": "tsx src/auth-example.ts",
-    "test:pagination": "tsx src/pagination-patterns.ts"
+    "test:pagination": "tsx src/pagination-patterns.ts",
+    "test:concurrent": "tsx src/concurrent-requests.ts"
   },
   "dependencies": {
     "@tesouro/tesouro-sdk-for-node": "file:../../"

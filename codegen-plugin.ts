@@ -356,8 +356,18 @@ function generateObjectFieldSelection(
   const newVisitedTypes = new Set(visitedTypes);
   newVisitedTypes.add(objectType.name);
   
-  // Include all scalar and enum fields
+  // Include all scalar and enum fields, but skip fields that require arguments
   for (const [fieldName, fieldDef] of Object.entries(fields)) {
+    // Skip fields that have required arguments (they need their own queries)
+    if (fieldDef.args.length > 0) {
+      continue;
+    }
+    
+    // TODO: PRODEV-16141 - Temporary workaround for API bug in applicationCounts field
+    // Remove this exclusion once the API bug is fixed
+    if (fieldName === 'applicationCounts') {
+      continue;
+    }
     // Check for list types FIRST, but need to handle NonNull wrappers
     let currentType = fieldDef.type;
     

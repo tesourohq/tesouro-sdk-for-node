@@ -208,8 +208,18 @@ function generateObjectFieldSelection(objectType, schema, config, visitedTypes =
     // Add this type to the visited set for cycle detection
     const newVisitedTypes = new Set(visitedTypes);
     newVisitedTypes.add(objectType.name);
-    // Include all scalar and enum fields
+    // Include all scalar and enum fields, but skip fields that require arguments
     for (const [fieldName, fieldDef] of Object.entries(fields)) {
+        // Skip fields that have required arguments (they need their own queries)
+        if (fieldDef.args.length > 0) {
+            continue;
+        }
+        
+        // TODO: PRODEV-16141 - Temporary workaround for API bug in applicationCounts field
+        // Remove this exclusion once the API bug is fixed
+        if (fieldName === 'applicationCounts') {
+            continue;
+        }
         // Check for list types FIRST, but need to handle NonNull wrappers
         let currentType = fieldDef.type;
         // Unwrap NonNull to get to the actual type
@@ -222,8 +232,6 @@ function generateObjectFieldSelection(objectType, schema, config, visitedTypes =
         if ((0, graphql_1.isListType)(currentType)) {
             // Handle list/array types - get the inner type
             const innerType = (0, graphql_1.getNamedType)(fieldDef.type);
-            
-            
             if ((0, graphql_1.isObjectType)(innerType)) {
                 // For arrays of objects, recursively generate selections for the inner type
                 const nestedSelections = generateObjectFieldSelection(innerType, schema, config, newVisitedTypes, depth + 1);

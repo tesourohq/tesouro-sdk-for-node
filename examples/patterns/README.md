@@ -93,3 +93,56 @@ input PagingInput {
 ```
 
 All patterns use the `paymentTransactions` query which requires date range filtering and demonstrates real-world pagination scenarios.
+
+## Concurrent Requests Patterns (`concurrent-requests.ts`)
+
+Demonstrates 5 comprehensive approaches for handling concurrent requests efficiently:
+
+### 1. 🔥 Parallel Query Execution
+Execute multiple independent queries simultaneously:
+- Multiple queries run at the same time
+- Shared authentication across requests
+- Performance metrics and timing
+- Best for: Independent data fetching operations
+
+### 2. 📦 Request Batching with Controlled Concurrency
+Process large sets of requests in smaller, manageable batches:
+- Configurable batch sizes
+- Prevents server overload
+- Rate limiting friendly
+- Progress tracking
+- Best for: Large volumes of requests
+
+### 3. 🔀 Mixed Query Types with Error Handling
+Handle different types of requests concurrently with graceful error handling:
+- Promise.allSettled for fault tolerance
+- Mixed query and mutation operations
+- Individual request failure handling
+- Success rate analytics
+- Best for: Diverse operations with varying reliability
+
+### 4. 🏁 Sequential vs Concurrent Performance Comparison
+Demonstrates the performance benefits of concurrent execution:
+- Side-by-side timing comparison
+- Performance improvement metrics
+- Speed-up factor analysis
+- Data consistency verification
+- Best for: Performance optimization decisions
+
+### 5. 🛡️ Resilient Concurrent Requests with Retry Logic
+Handle failures in concurrent scenarios with automatic recovery:
+- Exponential backoff retry strategy
+- Per-request failure tracking
+- Configurable retry limits
+- Detailed failure analysis
+- Best for: Production environments with network instability
+
+## Usage
+
+```bash
+# Run all concurrent request patterns
+npx tsx examples/patterns/concurrent-requests.ts
+
+# Or import specific patterns
+import { parallelQueryExecution, requestBatching } from './examples/patterns/concurrent-requests';
+```
