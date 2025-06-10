@@ -28,6 +28,7 @@ This is a test project for manually testing the Tesouro SDK with real API endpoi
 - `npm run test:query` - Tests simple GraphQL query execution
 - `npm run test:mutation` - Tests mutation with error handling
 - `npm run test:auth` - Tests authentication scenarios
+- `npm run test:pagination` - Tests comprehensive pagination patterns (5 different approaches)
 
 ## Development
 
