@@ -3,7 +3,6 @@
  *
  * A TypeScript-first GraphQL SDK with OpenID Connect authentication
  *
- * @version 0.0.1
  */
 
 /**
@@ -92,9 +91,3 @@ export type * from './generated/types';
 export function hello(): string {
   return 'Hello from Tesouro SDK!';
 }
-
-/**
- * SDK version for programmatic access
- * Current version of the Tesouro SDK
- */
-export const version = '0.0.1';

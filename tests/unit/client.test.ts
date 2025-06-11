@@ -116,8 +116,10 @@ describe('ApiClient', () => {
         {
           headers: {
             authorization: 'Bearer test-token',
+            'user-agent': 'tesouro-sdk-for-node',
           },
           timeout: 30000,
+          variables: undefined,
         }
       );
       expect(result).toBe(mockResult);
@@ -221,6 +223,52 @@ describe('ApiClient', () => {
       mockMakeGraphQLRequest.mockRejectedValue(networkError);
 
       await expect(client.request('query { test }')).rejects.toThrow(NetworkError);
+    });
+
+    it('should automatically add User-Agent header to all requests', async () => {
+      const mockResult = { data: {}, response: {} as any };
+      mockMakeGraphQLRequest.mockResolvedValue(mockResult);
+
+      const client = new ApiClient(baseConfig);
+      mockAuthManager.isTokenValid.mockReturnValue(true);
+      mockAuthManager.getAuthorizationHeader.mockReturnValue('Bearer test-token');
+
+      await client.request('query { test }');
+
+      expect(mockMakeGraphQLRequest).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'user-agent': 'tesouro-sdk-for-node',
+          }),
+        })
+      );
+    });
+
+    it('should allow User-Agent header to be overridden by custom headers', async () => {
+      const mockResult = { data: {}, response: {} as any };
+      mockMakeGraphQLRequest.mockResolvedValue(mockResult);
+
+      const client = new ApiClient(baseConfig);
+      mockAuthManager.isTokenValid.mockReturnValue(true);
+      mockAuthManager.getAuthorizationHeader.mockReturnValue('Bearer test-token');
+
+      await client.request('query { test }', undefined, {
+        headers: {
+          'user-agent': 'custom-user-agent',
+        },
+      });
+
+      expect(mockMakeGraphQLRequest).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'user-agent': 'custom-user-agent',
+          }),
+        })
+      );
     });
   });
 
@@ -591,6 +639,7 @@ describe('ApiClient', () => {
         expect.objectContaining({
           headers: {
             authorization: 'Bearer test-token',
+            'user-agent': 'tesouro-sdk-for-node',
             'x-custom': 'custom-value',
             'x-default': 'default-value',
             'x-api-version': 'v2', // Custom header should override default

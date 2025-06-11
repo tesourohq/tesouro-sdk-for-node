@@ -25,6 +25,13 @@ import { SdkError, NetworkError } from './errors';
 // Note: Real schema types will be imported as needed
 
 /**
+ * Generate User-Agent header value for SDK requests
+ */
+function generateUserAgent(): string {
+  return 'tesouro-sdk-for-node';
+}
+
+/**
  * Configuration options for initializing the API client
  */
 export interface ApiClientConfig extends ClientConfig {
@@ -119,6 +126,9 @@ export class ApiClient {
 
     // Start with default headers from configuration
     const requestHeaders = { ...this.config.headers };
+
+    // Add SDK User-Agent header (can be overridden by custom headers)
+    requestHeaders['user-agent'] = generateUserAgent();
 
     // Add custom headers (these should override defaults)
     Object.assign(requestHeaders, headers);
