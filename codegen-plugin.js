@@ -214,7 +214,6 @@ function generateObjectFieldSelection(objectType, schema, config, visitedTypes =
         if (fieldDef.args.length > 0) {
             continue;
         }
-        
         // TODO: PRODEV-16141 - Temporary workaround for API bug in applicationCounts field
         // Remove this exclusion once the API bug is fixed
         if (fieldName === 'applicationCounts') {
@@ -330,14 +329,14 @@ ${errorUtilities}
  * Generated client methods for GraphQL operations
  * Extends the base ApiClient with auto-generated typed methods
  */
-export class GeneratedApiClient extends ApiClient {
+export class TesouroClient extends ApiClient {
 ${methods.split('\n').map(line => line ? `  ${line}` : '').join('\n')}
 }
 
 /**
  * Type-safe client with all generated methods
  */
-export type TypedApiClient = GeneratedApiClient;`;
+export type TypedApiClient = TesouroClient;`;
 }
 /**
  * Generates import statements for the generated code

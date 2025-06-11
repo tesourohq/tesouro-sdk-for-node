@@ -8,7 +8,7 @@
 
 import 'dotenv/config';
 import { 
-  GeneratedApiClient, 
+  TesouroClient, 
   type PaymentTransactionCollection,
   type QueryPaymentTransactionsArgs,
   type PaymentTransactionFilterInput,
@@ -16,7 +16,7 @@ import {
   type GraphQLResult
 } from '@tesouro/tesouro-sdk-for-node';
 
-function setupClient(): GeneratedApiClient {
+function setupClient(): TesouroClient {
   const clientId = process.env.TESOURO_CLIENT_ID;
   const clientSecret = process.env.TESOURO_CLIENT_SECRET;
   const endpoint = process.env.TESOURO_ENDPOINT || 'https://api.sandbox.tesouro.com/graphql';
@@ -26,7 +26,7 @@ function setupClient(): GeneratedApiClient {
     throw new Error('Missing required environment variables. Please check .env file.');
   }
 
-  return new GeneratedApiClient({
+  return new TesouroClient({
     clientId,
     clientSecret,
     endpoint,

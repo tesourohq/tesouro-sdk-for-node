@@ -3,13 +3,13 @@
  * Verifies that Step 24 error code generation is working correctly
  */
 
-import { GeneratedApiClient } from '../../src/generated/client-methods';
+import { TesouroClient } from '../../src/generated/client-methods';
 
 describe('Error Code Generation (Step 24)', () => {
   describe('Generated Client', () => {
     it('should have generated the client class', () => {
-      expect(GeneratedApiClient).toBeDefined();
-      expect(typeof GeneratedApiClient).toBe('function');
+      expect(TesouroClient).toBeDefined();
+      expect(typeof TesouroClient).toBe('function');
     });
 
     it('should extend ApiClient', () => {
@@ -19,8 +19,8 @@ describe('Error Code Generation (Step 24)', () => {
         endpoint: 'https://api.example.com/graphql',
       };
 
-      const client = new GeneratedApiClient(config);
-      expect(client).toBeInstanceOf(GeneratedApiClient);
+      const client = new TesouroClient(config);
+      expect(client).toBeInstanceOf(TesouroClient);
 
       // Should have inherited methods from ApiClient
       expect(typeof client.query).toBe('function');
@@ -34,7 +34,7 @@ describe('Error Code Generation (Step 24)', () => {
         endpoint: 'https://api.example.com/graphql',
       };
 
-      const client = new GeneratedApiClient(config);
+      const client = new TesouroClient(config);
 
       // Check for some key operations
       expect(typeof client.paymentTransactionSummaries).toBe('function');
@@ -63,7 +63,7 @@ describe('Error Code Generation (Step 24)', () => {
       console.log('File contains ErrorUtils:', fileContent.includes('ErrorUtils'));
 
       // For now, just verify the file was generated (we'll improve this once error utilities are working)
-      expect(fileContent).toContain('GeneratedApiClient');
+      expect(fileContent).toContain('TesouroClient');
       expect(fileContent.length).toBeGreaterThan(1000); // Should be a substantial file
     });
   });

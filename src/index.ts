@@ -61,7 +61,7 @@ export {
 export { ApiClient, createClient, type ApiClientConfig, type ClientRequestOptions } from './client';
 
 // Export generated client and types
-export { GeneratedApiClient } from './generated/client-methods';
+export { TesouroClient } from './generated/client-methods';
 export type * from './generated/types';
 
 /**

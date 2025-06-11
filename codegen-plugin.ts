@@ -517,14 +517,14 @@ ${errorUtilities}
  * Generated client methods for GraphQL operations
  * Extends the base ApiClient with auto-generated typed methods
  */
-export class GeneratedApiClient extends ApiClient {
+export class TesouroClient extends ApiClient {
 ${methods.split('\n').map(line => line ? `  ${line}` : '').join('\n')}
 }
 
 /**
  * Type-safe client with all generated methods
  */
-export type TypedApiClient = GeneratedApiClient;`;
+export type TypedApiClient = TesouroClient;`;
 }
 
 /**

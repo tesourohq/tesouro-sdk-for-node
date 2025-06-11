@@ -216,7 +216,7 @@ export class ApiClient {
     return this.request<TResult, TVariables>(mutation, variables, options);
   }
 
-  // Generated methods will extend this class via GeneratedApiClient
+  // Generated methods will extend this class via TesouroClient
 
   /**
    * Sets a new access token

@@ -6,7 +6,7 @@
  */
 
 import { 
-  GeneratedApiClient, 
+  TesouroClient, 
   type MutationAuthorizeCustomerInitiatedTransactionArgs,
   type CustomerInitiatedTransactionAuthorizationInput,
   type AuthorizeCustomerInitiatedTransactionResponse,
@@ -17,8 +17,8 @@ import {
 } from '@tesouro/tesouro-sdk-for-node';
 
 // Setup client using the generated client
-function setupClient(): GeneratedApiClient {
-  return new GeneratedApiClient({
+function setupClient(): TesouroClient {
+  return new TesouroClient({
     clientId: process.env.TESOURO_CLIENT_ID!,
     clientSecret: process.env.TESOURO_CLIENT_SECRET!,
     endpoint: 'https://api.sandbox.tesouro.com/graphql',

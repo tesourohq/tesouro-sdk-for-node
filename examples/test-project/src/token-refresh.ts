@@ -13,7 +13,7 @@
 
 import 'dotenv/config';
 import { 
-  GeneratedApiClient, 
+  TesouroClient, 
   type PaymentTransaction,
   type PaymentTransactionSummary,
   type QueryPaymentTransactionSummariesArgs,
@@ -30,7 +30,7 @@ function getSafeDateForAPI(): string {
   return endDate.toISOString().split('T')[0];
 }
 
-function setupClient(): GeneratedApiClient {
+function setupClient(): TesouroClient {
   const clientId = process.env.TESOURO_CLIENT_ID;
   const clientSecret = process.env.TESOURO_CLIENT_SECRET;
   const endpoint = process.env.TESOURO_ENDPOINT || 'https://api.sandbox.tesouro.com/graphql';
@@ -40,7 +40,7 @@ function setupClient(): GeneratedApiClient {
     throw new Error('Missing required environment variables. Please check .env file.');
   }
 
-  return new GeneratedApiClient({
+  return new TesouroClient({
     clientId,
     clientSecret,
     endpoint,
@@ -54,7 +54,7 @@ const client = setupClient();
 /**
  * Pattern 1: Automatic Token Refresh
  * 
- * The GeneratedApiClient automatically handles token refresh when tokens are near expiration.
+ * The TesouroClient automatically handles token refresh when tokens are near expiration.
  * This is the most common pattern for production applications.
  */
 export async function automaticRefreshPattern(): Promise<void> {
@@ -245,7 +245,7 @@ export async function errorHandlingPattern(): Promise<void> {
   console.log('===========================================');
 
   // Create a client with invalid credentials to simulate auth failures
-  const testClient = new GeneratedApiClient({
+  const testClient = new TesouroClient({
     clientId: 'invalid-client-id',
     clientSecret: 'invalid-client-secret',
     endpoint: process.env.TESOURO_ENDPOINT || 'https://api.sandbox.tesouro.com/graphql',
