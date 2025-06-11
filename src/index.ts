@@ -6,7 +6,10 @@
  * @version 0.0.1
  */
 
-// Export errors
+/**
+ * Error handling classes and utilities
+ * Comprehensive error types for GraphQL, network, and SDK-specific errors
+ */
 export {
   SdkError,
   NetworkError,
@@ -18,10 +21,16 @@ export {
   type ErrorContext,
 } from './errors';
 
-// Export authentication
+/**
+ * Authentication management
+ * OAuth 2.0 client credentials flow with automatic token refresh
+ */
 export { AuthManager, type ClientCredentials } from './auth';
 
-// Export types and configuration
+/**
+ * Configuration types and validation utilities
+ * Type-safe configuration with validation helpers and defaults
+ */
 export {
   type ClientConfig,
   type AuthConfig,
@@ -33,7 +42,10 @@ export {
   deriveTokenEndpoint,
 } from './types';
 
-// Export request utilities
+/**
+ * Low-level HTTP request utilities
+ * Core HTTP functionality used by GraphQL layer
+ */
 export {
   makeRequest,
   get,
@@ -44,7 +56,10 @@ export {
   type HttpResponse,
 } from './request';
 
-// Export GraphQL utilities
+/**
+ * GraphQL request handling and utilities
+ * GraphQL-specific request logic with error handling
+ */
 export {
   makeGraphQLRequest,
   formatGraphQLQuery,
@@ -57,10 +72,16 @@ export {
   type GraphQLRequestBody,
 } from './graphql';
 
-// Export client
+/**
+ * Base API client and factory functions
+ * Core client infrastructure extended by generated client
+ */
 export { ApiClient, createClient, type ApiClientConfig, type ClientRequestOptions } from './client';
 
-// Export generated client and types
+/**
+ * Main SDK client and generated types
+ * Auto-generated client with typed methods for all GraphQL operations
+ */
 export { TesouroClient } from './generated/client-methods';
 export type * from './generated/types';
 
@@ -72,5 +93,8 @@ export function hello(): string {
   return 'Hello from Tesouro SDK!';
 }
 
-// Export version for programmatic access
+/**
+ * SDK version for programmatic access
+ * Current version of the Tesouro SDK
+ */
 export const version = '0.0.1';

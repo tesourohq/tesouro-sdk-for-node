@@ -66,7 +66,20 @@ export const DEFAULT_CONFIG = {
 } as const;
 
 /**
- * Type guard to check if a value is a valid string
+ * Type guard to check if a value is a valid non-empty string
+ * Validates that the value is a string with at least one character
+ *
+ * @param value - The value to validate
+ * @returns True if the value is a non-empty string
+ * @example
+ * ```typescript
+ * isValidString("hello")      // true
+ * isValidString("a")          // true
+ * isValidString("")           // false (empty string)
+ * isValidString(null)         // false
+ * isValidString(undefined)    // false
+ * isValidString(123)          // false
+ * ```
  */
 export function isValidString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0;
@@ -74,6 +87,18 @@ export function isValidString(value: unknown): value is string {
 
 /**
  * Type guard to check if a value is a valid number
+ * Validates that the value is a number and not NaN or infinite
+ *
+ * @param value - The value to validate
+ * @returns True if the value is a valid, finite number
+ * @example
+ * ```typescript
+ * isValidNumber(42)        // true
+ * isValidNumber(3.14)      // true
+ * isValidNumber(NaN)       // false
+ * isValidNumber(Infinity)  // false
+ * isValidNumber("42")      // false
+ * ```
  */
 export function isValidNumber(value: unknown): value is number {
   return typeof value === 'number' && !isNaN(value) && isFinite(value);
@@ -81,6 +106,18 @@ export function isValidNumber(value: unknown): value is number {
 
 /**
  * Type guard to check if a value is a valid positive number
+ * Validates that the value is a number greater than zero
+ *
+ * @param value - The value to validate
+ * @returns True if the value is a positive number
+ * @example
+ * ```typescript
+ * isValidPositiveNumber(42)    // true
+ * isValidPositiveNumber(3.14)  // true
+ * isValidPositiveNumber(0)     // false
+ * isValidPositiveNumber(-5)    // false
+ * isValidPositiveNumber("42")  // false
+ * ```
  */
 export function isValidPositiveNumber(value: unknown): value is number {
   return isValidNumber(value) && value > 0;
@@ -88,6 +125,18 @@ export function isValidPositiveNumber(value: unknown): value is number {
 
 /**
  * Type guard to check if a value is a valid URL
+ * Validates that the value is a string that can be parsed as a URL
+ *
+ * @param value - The value to validate
+ * @returns True if the value is a valid URL string
+ * @example
+ * ```typescript
+ * isValidUrl("https://api.example.com")     // true
+ * isValidUrl("http://localhost:3000")       // true
+ * isValidUrl("not-a-url")                   // false
+ * isValidUrl(123)                           // false
+ * isValidUrl("")                            // false
+ * ```
  */
 export function isValidUrl(value: unknown): value is string {
   if (!isValidString(value)) {
@@ -104,6 +153,18 @@ export function isValidUrl(value: unknown): value is string {
 
 /**
  * Type guard to check if a value is a valid headers object
+ * Validates that the value is an object with string keys and string values
+ *
+ * @param value - The value to validate
+ * @returns True if the value is a valid headers object
+ * @example
+ * ```typescript
+ * isValidHeaders({"Content-Type": "application/json"})  // true
+ * isValidHeaders({"Authorization": "Bearer token"})     // true
+ * isValidHeaders({"key": 123})                         // false (non-string value)
+ * isValidHeaders(["header1", "header2"])               // false (array)
+ * isValidHeaders(null)                                 // false
+ * ```
  */
 export function isValidHeaders(value: unknown): value is Record<string, string> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -116,6 +177,17 @@ export function isValidHeaders(value: unknown): value is Record<string, string> 
 
 /**
  * Type guard to check if client credentials are valid
+ * Validates that the value contains valid clientId and clientSecret
+ *
+ * @param value - The value to validate
+ * @returns True if the value contains valid client credentials
+ * @example
+ * ```typescript
+ * isValidClientCredentials({clientId: "id123", clientSecret: "secret456"})  // true
+ * isValidClientCredentials({clientId: "", clientSecret: "secret"})          // false (empty clientId)
+ * isValidClientCredentials({clientId: "id"})                               // false (missing clientSecret)
+ * isValidClientCredentials(null)                                           // false
+ * ```
  */
 export function isValidClientCredentials(value: unknown): value is ClientCredentials {
   if (typeof value !== 'object' || value === null) {
@@ -127,9 +199,26 @@ export function isValidClientCredentials(value: unknown): value is ClientCredent
 }
 
 /**
- * Validates client configuration and throws errors for invalid values
- * @param config - The configuration to validate
- * @throws Error if configuration is invalid
+ * Validates client configuration and throws descriptive errors for invalid values
+ * Performs comprehensive validation of all required and optional configuration fields
+ *
+ * @param config - The configuration object to validate
+ * @throws {Error} When configuration is invalid with specific error messages
+ * @example
+ * ```typescript
+ * // Valid configuration
+ * validateClientConfig({
+ *   clientId: "your-client-id",
+ *   clientSecret: "your-client-secret",
+ *   endpoint: "https://api.example.com/graphql"
+ * });
+ *
+ * // Throws: "clientId must be a non-empty string"
+ * validateClientConfig({
+ *   clientId: "",
+ *   clientSecret: "secret"
+ * });
+ * ```
  */
 export function validateClientConfig(config: unknown): asserts config is ClientConfig {
   if (typeof config !== 'object' || config === null) {
@@ -184,9 +273,23 @@ export function applyConfigDefaults(config: ClientConfig): Required<ClientConfig
 }
 
 /**
- * Derives the token endpoint URL from the GraphQL endpoint
+ * Derives the OAuth token endpoint URL from a GraphQL endpoint URL
+ * Automatically constructs the token endpoint by replacing '/graphql' with '/openid/connect/token'
+ *
  * @param graphqlEndpoint - The GraphQL endpoint URL
- * @returns The token endpoint URL
+ * @returns The OAuth token endpoint URL
+ * @throws {Error} When the GraphQL endpoint is not a valid URL
+ * @example
+ * ```typescript
+ * deriveTokenEndpoint("https://api.example.com/graphql")
+ * // Returns: "https://api.example.com/openid/connect/token"
+ *
+ * deriveTokenEndpoint("https://api.example.com/v1/graphql")
+ * // Returns: "https://api.example.com/v1/openid/connect/token"
+ *
+ * deriveTokenEndpoint("invalid-url")
+ * // Throws: "Cannot derive token endpoint from invalid GraphQL endpoint"
+ * ```
  */
 export function deriveTokenEndpoint(graphqlEndpoint: string): string {
   try {
@@ -200,9 +303,25 @@ export function deriveTokenEndpoint(graphqlEndpoint: string): string {
 }
 
 /**
- * Validates request configuration
- * @param config - The request configuration to validate
- * @throws Error if configuration is invalid
+ * Validates request configuration for individual requests
+ * Checks optional request-level configuration parameters
+ *
+ * @param config - The request configuration object to validate
+ * @throws {Error} When configuration contains invalid values
+ * @example
+ * ```typescript
+ * // Valid request configuration
+ * validateRequestConfig({
+ *   timeout: 5000,
+ *   headers: { "Custom-Header": "value" },
+ *   skipAuth: false
+ * });
+ *
+ * // Throws: "timeout must be a positive number"
+ * validateRequestConfig({
+ *   timeout: -1000
+ * });
+ * ```
  */
 export function validateRequestConfig(config: unknown): asserts config is RequestConfig {
   if (typeof config !== 'object' || config === null) {
