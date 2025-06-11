@@ -13,7 +13,8 @@
     "test:mutation": "tsx src/mutation-examples.ts",
     "test:auth": "tsx src/auth-example.ts",
     "test:pagination": "tsx src/pagination-patterns.ts",
-    "test:concurrent": "tsx src/concurrent-requests.ts"
+    "test:concurrent": "tsx src/concurrent-requests.ts",
+    "test:token-refresh": "tsx src/token-refresh.ts"
   },
   "dependencies": {
     "@tesouro/tesouro-sdk-for-node": "file:../../"

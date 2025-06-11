@@ -43,14 +43,14 @@ async function parallelQueryExecution() {
   try {
     const startTime = Date.now();
     
-    // Date range for filtering (use yesterday to ensure we're within API limits)
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    // Date range for filtering (use safe dates to ensure we're within API limits)
+    const endDate = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString().split('T')[0]; // 2 days ago
+    const startDate = new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 9 days ago
     
     const where: PaymentTransactionFilterInput = {
       transactionActivityDate: {
-        gte: sevenDaysAgo,
-        lte: yesterday
+        gte: startDate,
+        lte: endDate
       }
     };
 
@@ -80,8 +80,8 @@ async function parallelQueryExecution() {
           paging: { skip: 10, take: 5 },
           where: {
             transactionActivityDate: {
-              gte: sevenDaysAgo,
-              lte: yesterday
+              gte: startDate,
+              lte: endDate
             }
           }
         }
@@ -93,8 +93,8 @@ async function parallelQueryExecution() {
           paging: { skip: 0, take: 3 },
           where: {
             transactionActivityDate: {
-              gte: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-              lte: yesterday
+              gte: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 5 days ago
+              lte: endDate
             }
           }
         }
@@ -154,14 +154,14 @@ async function requestBatching() {
     
     console.log(`🚀 Processing ${totalRequests} requests in batches of ${batchSize}...`);
     
-    // Use yesterday to ensure we're within API limits
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    // Use safe dates to ensure we're within API limits
+    const endDate = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString().split('T')[0]; // 2 days ago
+    const startDate = new Date(Date.now() - 32 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 32 days ago
     
     const where: PaymentTransactionFilterInput = {
       transactionActivityDate: {
-        gte: thirtyDaysAgo,
-        lte: yesterday
+        gte: startDate,
+        lte: endDate
       }
     };
 
@@ -231,9 +231,9 @@ async function mixedQueryTypes() {
   try {
     console.log('🚀 Starting mixed concurrent requests...');
     
-    // Use yesterday to ensure we're within API limits
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    // Use safe dates to ensure we're within API limits
+    const endDate = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString().split('T')[0]; // 2 days ago
+    const startDate = new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 9 days ago
     
     const requests = [
       {
@@ -243,8 +243,8 @@ async function mixedQueryTypes() {
             paging: { skip: 0, take: 5 },
             where: {
               transactionActivityDate: {
-                gte: sevenDaysAgo,
-                lte: yesterday
+                gte: startDate,
+                lte: endDate
               }
             }
           }
@@ -257,8 +257,8 @@ async function mixedQueryTypes() {
             paging: { skip: 0, take: 5 },
             where: {
               transactionActivityDate: {
-                gte: sevenDaysAgo,
-                lte: yesterday
+                gte: startDate,
+                lte: endDate
               }
             }
           }
@@ -271,8 +271,8 @@ async function mixedQueryTypes() {
             paging: { skip: 0, take: 5 },
             where: {
               transactionActivityDate: {
-                gte: sevenDaysAgo,
-                lte: yesterday
+                gte: startDate,
+                lte: endDate
               }
             }
           }
@@ -285,8 +285,8 @@ async function mixedQueryTypes() {
             paging: { skip: 5, take: 3 },
             where: {
               transactionActivityDate: {
-                gte: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                lte: yesterday
+                gte: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 5 days ago
+                lte: endDate
               }
             }
           }
@@ -351,14 +351,14 @@ async function performanceComparison() {
   console.log('===========================================================\n');
   
   try {
-    // Use yesterday to ensure we're within API limits
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    // Use safe dates to ensure we're within API limits
+    const endDate = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString().split('T')[0]; // 2 days ago
+    const startDate = new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 9 days ago
     
     const where: PaymentTransactionFilterInput = {
       transactionActivityDate: {
-        gte: sevenDaysAgo,
-        lte: yesterday
+        gte: startDate,
+        lte: endDate
       }
     };
 
@@ -441,9 +441,9 @@ async function resilientConcurrentRequests() {
     
     console.log(`🚀 Starting resilient concurrent requests (max ${maxRetries} retries with jitter)...`);
     
-    // Use yesterday to ensure we're within API limits
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    // Use safe dates to ensure we're within API limits
+    const endDate = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString().split('T')[0]; // 2 days ago
+    const startDate = new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 9 days ago
     
     // Create requests with retry logic
     const createResilientRequest = async (requestName: string, requestFn: () => Promise<any>) => {
@@ -483,8 +483,8 @@ async function resilientConcurrentRequests() {
             paging: { skip: 0, take: 5 },
             where: {
               transactionActivityDate: {
-                gte: sevenDaysAgo,
-                lte: yesterday
+                gte: startDate,
+                lte: endDate
               }
             }
           }
@@ -497,8 +497,8 @@ async function resilientConcurrentRequests() {
             paging: { skip: 0, take: 3 },
             where: {
               transactionActivityDate: {
-                gte: sevenDaysAgo,
-                lte: yesterday
+                gte: startDate,
+                lte: endDate
               }
             }
           }
@@ -512,7 +512,7 @@ async function resilientConcurrentRequests() {
             where: {
               transactionActivityDate: {
                 gte: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                lte: yesterday
+                lte: endDate
               }
             }
           }

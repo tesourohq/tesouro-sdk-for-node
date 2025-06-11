@@ -146,3 +146,59 @@ npx tsx examples/patterns/concurrent-requests.ts
 # Or import specific patterns
 import { parallelQueryExecution, requestBatching } from './examples/patterns/concurrent-requests';
 ```
+
+## Token Refresh Patterns (`token-refresh.ts`)
+
+Demonstrates 6 comprehensive token management strategies for robust authentication:
+
+### 1. 🔄 Automatic Token Refresh
+Built-in SDK functionality for seamless token management:
+- Transparent token refresh
+- Expiration buffer handling
+- Zero-intervention authentication
+- Best for: Standard production applications
+
+### 2. 🎯 Manual Token Refresh Control
+Explicit control over when and how tokens are refreshed:
+- Force refresh capabilities
+- Token status monitoring
+- Refresh timing control
+- Best for: Applications requiring precise auth control
+
+### 3. 🚀 Concurrent Requests During Token Refresh
+Handle multiple requests during token refresh scenarios:
+- Single refresh for multiple waiting requests
+- Concurrent request coordination
+- Thread-safe token management
+- Best for: High-concurrency applications
+
+### 4. 🛡️ Token Refresh Error Handling and Fallback
+Robust error handling when authentication fails:
+- Retry logic with exponential backoff
+- Fallback authentication strategies
+- Error classification and handling
+- Best for: Applications requiring high availability
+
+### 5. 📊 Token Lifecycle Monitoring
+Monitor and track token status throughout its lifecycle:
+- Real-time token status tracking
+- Expiration monitoring
+- Lifecycle event handling
+- Best for: Applications requiring auth visibility
+
+### 6. ⚡ Proactive Token Refresh Strategy
+Refresh tokens before they expire to prevent request delays:
+- Predictive refresh timing
+- Request delay prevention
+- Batch request optimization
+- Best for: Performance-critical applications
+
+## Usage
+
+```bash
+# Run all token refresh patterns
+npx tsx examples/patterns/token-refresh.ts
+
+# Or import specific patterns
+import { automaticRefreshPattern, proactiveRefreshPattern } from './examples/patterns/token-refresh';
+```
