@@ -1,33 +1,22 @@
 import { makeRequest, get, post, mergeHeaders, DEFAULT_TIMEOUT } from '../../src/request';
 import { NetworkError, ResponseError } from '../../src/errors';
-
-// Mock fetch globally
-const mockFetch = jest.fn();
-global.fetch = mockFetch;
+import { setupFetchMock, setupTimerMocks, cleanupTimerMocks, createMockResponse } from '../helpers';
 
 describe('HTTP Request Wrapper', () => {
+  const mockFetch = setupFetchMock();
+
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.clearAllTimers();
-    jest.useFakeTimers();
-    jest.spyOn(global, 'clearTimeout');
-    jest.spyOn(global, 'setTimeout');
+    setupTimerMocks();
   });
 
   afterEach(() => {
-    jest.useRealTimers();
-    jest.restoreAllMocks();
+    cleanupTimerMocks();
   });
 
   describe('makeRequest', () => {
     it('should make successful JSON request', async () => {
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        statusText: 'OK',
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: jest.fn().mockResolvedValue({ message: 'success' }),
-      };
+      const responseData = { message: 'success' };
+      const mockResponse = createMockResponse(responseData);
       mockFetch.mockResolvedValue(mockResponse);
 
       const response = await makeRequest('https://api.example.com/test');

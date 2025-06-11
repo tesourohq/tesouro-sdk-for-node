@@ -8,6 +8,12 @@ import {
 } from '../../src/graphql';
 import { GraphQLError, NetworkError, ResponseError } from '../../src/errors';
 import { makeRequest } from '../../src/request';
+import {
+  createMockHttpResponse,
+  TEST_GRAPHQL_QUERY,
+  TEST_GRAPHQL_VARIABLES,
+  TEST_GRAPHQL_RESPONSE_DATA,
+} from '../helpers';
 
 // Mock the request module
 jest.mock('../../src/request');
@@ -19,28 +25,18 @@ describe('GraphQL Request Builder', () => {
   });
 
   describe('makeGraphQLRequest', () => {
-    const testQuery = 'query GetUser($id: ID!) { user(id: $id) { name email } }';
-    const testVariables = { id: '123' };
-
     it('should make successful GraphQL request', async () => {
-      const mockResponseData = {
-        data: { user: { name: 'John Doe', email: 'john@example.com' } },
-      };
-
-      const mockHttpResponse = {
-        status: 200,
-        statusText: 'OK',
-        headers: new Headers({ 'x-request-id': 'req-123' }),
-        data: mockResponseData,
-        response: new Response(),
-      };
-
+      const mockHttpResponse = createMockHttpResponse(TEST_GRAPHQL_RESPONSE_DATA);
       mockMakeRequest.mockResolvedValue(mockHttpResponse);
 
-      const result = await makeGraphQLRequest('https://api.example.com/graphql', testQuery, {
-        variables: testVariables,
-        operationName: 'GetUser',
-      });
+      const result = await makeGraphQLRequest(
+        'https://api.example.com/graphql',
+        TEST_GRAPHQL_QUERY,
+        {
+          variables: TEST_GRAPHQL_VARIABLES,
+          operationName: 'GetUser',
+        }
+      );
 
       expect(mockMakeRequest).toHaveBeenCalledWith('https://api.example.com/graphql', {
         method: 'POST',
@@ -49,8 +45,8 @@ describe('GraphQL Request Builder', () => {
           Accept: 'application/json',
         },
         body: JSON.stringify({
-          query: testQuery,
-          variables: testVariables,
+          query: TEST_GRAPHQL_QUERY,
+          variables: TEST_GRAPHQL_VARIABLES,
           operationName: 'GetUser',
         }),
       });
@@ -100,7 +96,7 @@ describe('GraphQL Request Builder', () => {
 
       mockMakeRequest.mockResolvedValue(mockHttpResponse);
 
-      await makeGraphQLRequest('https://api.example.com/graphql', testQuery, {
+      await makeGraphQLRequest('https://api.example.com/graphql', TEST_GRAPHQL_QUERY, {
         headers: {
           Authorization: 'Bearer token',
           'Custom-Header': 'value',
@@ -141,13 +137,13 @@ describe('GraphQL Request Builder', () => {
       mockMakeRequest.mockResolvedValue(mockHttpResponse);
 
       await expect(
-        makeGraphQLRequest('https://api.example.com/graphql', testQuery, {
+        makeGraphQLRequest('https://api.example.com/graphql', TEST_GRAPHQL_QUERY, {
           operationName: 'GetUser',
         })
       ).rejects.toThrow(GraphQLError);
 
       try {
-        await makeGraphQLRequest('https://api.example.com/graphql', testQuery, {
+        await makeGraphQLRequest('https://api.example.com/graphql', TEST_GRAPHQL_QUERY, {
           operationName: 'GetUser',
         });
       } catch (error) {
@@ -179,10 +175,10 @@ describe('GraphQL Request Builder', () => {
       mockMakeRequest.mockResolvedValue(mockHttpResponse);
 
       await expect(
-        makeGraphQLRequest('https://api.example.com/graphql', testQuery)
+        makeGraphQLRequest('https://api.example.com/graphql', TEST_GRAPHQL_QUERY)
       ).rejects.toThrow(GraphQLError);
       await expect(
-        makeGraphQLRequest('https://api.example.com/graphql', testQuery)
+        makeGraphQLRequest('https://api.example.com/graphql', TEST_GRAPHQL_QUERY)
       ).rejects.toThrow('GraphQL response missing data field');
     });
 
@@ -198,10 +194,10 @@ describe('GraphQL Request Builder', () => {
       mockMakeRequest.mockResolvedValue(mockHttpResponse);
 
       await expect(
-        makeGraphQLRequest('https://api.example.com/graphql', testQuery)
+        makeGraphQLRequest('https://api.example.com/graphql', TEST_GRAPHQL_QUERY)
       ).rejects.toThrow(GraphQLError);
       await expect(
-        makeGraphQLRequest('https://api.example.com/graphql', testQuery)
+        makeGraphQLRequest('https://api.example.com/graphql', TEST_GRAPHQL_QUERY)
       ).rejects.toThrow('Invalid GraphQL response: must be an object');
     });
 
@@ -221,7 +217,7 @@ describe('GraphQL Request Builder', () => {
       mockMakeRequest.mockResolvedValue(mockHttpResponse);
 
       await expect(
-        makeGraphQLRequest('https://api.example.com/graphql', testQuery)
+        makeGraphQLRequest('https://api.example.com/graphql', TEST_GRAPHQL_QUERY)
       ).rejects.toThrow('Invalid GraphQL response: errors must be an array');
     });
 
@@ -230,10 +226,10 @@ describe('GraphQL Request Builder', () => {
       mockMakeRequest.mockRejectedValue(networkError);
 
       await expect(
-        makeGraphQLRequest('https://api.example.com/graphql', testQuery)
+        makeGraphQLRequest('https://api.example.com/graphql', TEST_GRAPHQL_QUERY)
       ).rejects.toThrow(NetworkError);
       await expect(
-        makeGraphQLRequest('https://api.example.com/graphql', testQuery)
+        makeGraphQLRequest('https://api.example.com/graphql', TEST_GRAPHQL_QUERY)
       ).rejects.toThrow('Connection failed');
     });
 
@@ -242,7 +238,7 @@ describe('GraphQL Request Builder', () => {
       mockMakeRequest.mockRejectedValue(responseError);
 
       await expect(
-        makeGraphQLRequest('https://api.example.com/graphql', testQuery)
+        makeGraphQLRequest('https://api.example.com/graphql', TEST_GRAPHQL_QUERY)
       ).rejects.toThrow(ResponseError);
     });
 
@@ -258,7 +254,7 @@ describe('GraphQL Request Builder', () => {
 
       mockMakeRequest.mockResolvedValue(mockHttpResponse);
 
-      await makeGraphQLRequest('https://api.example.com/graphql', testQuery, {
+      await makeGraphQLRequest('https://api.example.com/graphql', TEST_GRAPHQL_QUERY, {
         timeout: 5000,
         signal: new AbortController().signal,
       });

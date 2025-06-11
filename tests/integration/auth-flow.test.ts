@@ -3,56 +3,15 @@
  * Tests actual SDK behavior without mocking internal functions
  */
 
-import { ApiClient } from '../../src/client';
-import { MswMockServer, createMswMockServer, waitForPendingRequests } from './msw-mock-server';
+import { setupIntegrationTestSuite, PAYMENT_TRANSACTION_SUMMARIES_QUERY } from '../helpers';
 
 describe('Authentication Flow Integration', () => {
-  let mockServer: MswMockServer;
-  let client: ApiClient;
-
-  const clientConfig = {
-    clientId: 'test-client-id',
-    clientSecret: 'test-client-secret',
-    endpoint: 'https://api.example.com/graphql',
-  };
-
-  beforeAll(() => {
-    mockServer = createMswMockServer();
-    mockServer.start();
-  });
-
-  beforeEach(() => {
-    client = new ApiClient(clientConfig);
-    mockServer.reset();
-  });
-
-  afterAll(async () => {
-    mockServer.stop();
-    await waitForPendingRequests();
-  });
+  const { setupIntegrationTest, getTestContext } = setupIntegrationTestSuite();
+  setupIntegrationTest();
 
   describe('Initial Authentication', () => {
     it('should authenticate and make GraphQL request successfully', async () => {
-      const query = `
-        query GetPaymentTransactionSummaries($input: PaymentTransactionSummaryInput!) {
-          paymentTransactionSummaries(input: $input) {
-            pageInfo {
-              hasNextPage
-              hasPreviousPage
-            }
-            items {
-              transactionActivityDate
-              transactionType
-              transactionCount
-              transactionAmount
-              acceptor {
-                id
-                businessName
-              }
-            }
-          }
-        }
-      `;
+      const { client } = getTestContext();
 
       const variables = {
         input: {
@@ -61,7 +20,7 @@ describe('Authentication Flow Integration', () => {
         },
       };
 
-      const result = await client.query(query, variables);
+      const result = await client.query(PAYMENT_TRANSACTION_SUMMARIES_QUERY, variables);
 
       expect(result.data).toBeDefined();
       const summaries = (result.data as any).paymentTransactionSummaries;
@@ -77,6 +36,8 @@ describe('Authentication Flow Integration', () => {
     });
 
     it('should handle authentication failure gracefully', async () => {
+      const { client, mockServer } = getTestContext();
+
       mockServer.setAuthFailure(true);
 
       const query = `
@@ -98,6 +59,8 @@ describe('Authentication Flow Integration', () => {
     }, 10000);
 
     it('should retry authentication on 401 response', async () => {
+      const { client, mockServer } = getTestContext();
+
       // First, let's get a token
       const query = `
         query GetPaymentTransactionSummaries($input: PaymentTransactionSummaryInput!) {
@@ -131,6 +94,8 @@ describe('Authentication Flow Integration', () => {
 
   describe('Token Management', () => {
     it('should reuse valid tokens for multiple requests', async () => {
+      const { client, mockServer } = getTestContext();
+
       const query1 = `
         query GetPaymentSummary1($input: PaymentTransactionSummaryInput!) {
           paymentTransactionSummaries(input: $input) {
@@ -165,6 +130,8 @@ describe('Authentication Flow Integration', () => {
     });
 
     it('should handle concurrent requests during authentication', async () => {
+      const { client } = getTestContext();
+
       const query = `
         query GetPaymentTransactionSummaries($input: PaymentTransactionSummaryInput!) {
           paymentTransactionSummaries(input: $input) {
@@ -204,6 +171,8 @@ describe('Authentication Flow Integration', () => {
 
   describe('Mutation Authentication', () => {
     it('should authenticate for mutations successfully', async () => {
+      const { client } = getTestContext();
+
       const mutation = `
         mutation AuthorizeTransaction($authorizeCustomerInitiatedTransactionInput: AuthorizeCustomerInitiatedTransactionInput!) {
           authorizeCustomerInitiatedTransaction(authorizeCustomerInitiatedTransactionInput: $authorizeCustomerInitiatedTransactionInput) {
@@ -255,6 +224,8 @@ describe('Authentication Flow Integration', () => {
     });
 
     it('should handle mixed queries and mutations with shared authentication', async () => {
+      const { client } = getTestContext();
+
       const query = `
         query GetPaymentTransactionSummaries($input: PaymentTransactionSummaryInput!) {
           paymentTransactionSummaries(input: $input) {
@@ -312,6 +283,8 @@ describe('Authentication Flow Integration', () => {
 
   describe('Error Scenarios', () => {
     it('should handle network timeouts during authentication', async () => {
+      const { client, mockServer } = getTestContext();
+
       mockServer.setNetworkDelay(2000); // 2 second delay
 
       const query = `
@@ -334,6 +307,8 @@ describe('Authentication Flow Integration', () => {
     });
 
     it('should clear token on authentication failure and retry', async () => {
+      const { client, mockServer } = getTestContext();
+
       // First successful request
       const query = `
         query GetPaymentTransactionSummaries($input: PaymentTransactionSummaryInput!) {
@@ -372,6 +347,8 @@ describe('Authentication Flow Integration', () => {
     }, 10000);
 
     it('should handle GraphQL errors with proper error transformation', async () => {
+      const { client } = getTestContext();
+
       const query = `
         query ErrorTest {
           errorTest {
