@@ -8,13 +8,13 @@ A TypeScript-first GraphQL SDK for the Tesouro payment platform with built-in OA
 
 ## Features
 
-- =€ **TypeScript-first** - Full type safety with auto-generated types from GraphQL schema
-- = **Automatic Authentication** - Built-in OAuth 2.0 client credentials flow with token refresh
-- =Ê **GraphQL Native** - Strongly-typed GraphQL operations with automatic query generation
-- ¡ **Performance Optimized** - Concurrent request support and intelligent token management
-- =á **Error Handling** - Comprehensive error types and validation
-- =Ú **Well Documented** - Extensive examples and JSDoc comments
-- >ê **Testing Ready** - Built-in testing utilities and mock support
+- ğŸš€ **TypeScript-first** - Full type safety with auto-generated types from GraphQL schema
+- ğŸ” **Automatic Authentication** - Built-in OAuth 2.0 client credentials flow with token refresh
+- ğŸ“Š **GraphQL Native** - Strongly-typed GraphQL operations with automatic query generation
+- âš¡ **Performance Optimized** - Concurrent request support and intelligent token management
+- ğŸ›¡ï¸ **Error Handling** - Comprehensive error types and validation
+- ğŸ“š **Well Documented** - Extensive examples and JSDoc comments
+- ğŸ§ª **Testing Ready** - Built-in testing utilities and mock support
 
 ## Quick Start
 
@@ -83,7 +83,7 @@ if (authResponse) {
 }
 ```
 
-=Ö **[Full Quick Start Guide ’](docs/QUICKSTART.md)**
+ğŸ“– **[Full Quick Start Guide â†’](docs/QUICKSTART.md)**
 
 ## Documentation
 
@@ -283,9 +283,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- =Ú **Documentation**: [docs/](docs/) and [Tesouro API Docs](https://docs.tesouro.com)
-- =ç **Email**: support@tesouro.com
+- ğŸ“š **Documentation**: [docs/](docs/) and [Tesouro API Docs](https://docs.tesouro.com)
+- ğŸ“§ **Email**: support@tesouro.com
 
 ---
 
-Made with d by the Tesouro team
+Made with â¤ï¸ by the Tesouro team
