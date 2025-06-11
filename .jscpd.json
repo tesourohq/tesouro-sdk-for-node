@@ -6,5 +6,7 @@
   "minLines": 5,
   "minTokens": 50,
   "output": "./reports/",
-  "verbose": false
+  "verbose": false,
+  "gitignore": true,
+  "absolute": true
 }
