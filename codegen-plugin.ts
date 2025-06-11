@@ -610,8 +610,11 @@ function generateErrorTypeGuards(errorTypes: ErrorTypeInfo[]): string {
 /**
  * Type guard for ${error.name}
  */
-export function is${error.name}(error: any): error is ${error.name} {
-  return error && typeof error === 'object' && error.__typename === '${error.name}';
+export function is${error.name}(error: unknown): error is ${error.name} {
+  return error !== null && 
+         typeof error === 'object' && 
+         '__typename' in error &&
+         (error as { __typename: string }).__typename === '${error.name}';
 }`).join('\n');
 
   return guards;
@@ -637,12 +640,12 @@ ${errorMap}
   /**
    * Creates a typed error object from a GraphQL error response
    */
-  static createTypedError(error: any): any {
-    if (!error || typeof error !== 'object') {
+  static createTypedError(error: unknown): unknown {
+    if (error === null || typeof error !== 'object' || !('__typename' in error)) {
       return error;
     }
 
-    const typeName = error.__typename;
+    const typeName = (error as { __typename: string }).__typename;
     if (!typeName || !(typeName in this.errorTypeMap)) {
       return error;
     }
@@ -661,7 +664,7 @@ ${errorMap}
   /**
    * Transforms an array of GraphQL errors to typed errors
    */
-  static transformErrors(errors: any[]): any[] {
+  static transformErrors(errors: unknown[]): unknown[] {
     if (!Array.isArray(errors)) {
       return [];
     }
@@ -680,7 +683,7 @@ function generateErrorUtils(errorTypes: ErrorTypeInfo[]): string {
   /**
    * Checks if response contains ${error.name}
    */
-  static has${error.name}(errors?: any[]): boolean {
+  static has${error.name}(errors?: unknown[]): boolean {
     return Array.isArray(errors) && errors.some(error => is${error.name}(error));
   }`).join('\n');
 
@@ -692,9 +695,12 @@ export class ErrorUtils {
   /**
    * Checks if response contains any known error types
    */
-  static hasKnownErrors(errors?: any[]): boolean {
+  static hasKnownErrors(errors?: unknown[]): boolean {
     return Array.isArray(errors) && errors.some(error => 
-      error && error.__typename && GraphQLErrorFactory.isKnownErrorType(error.__typename)
+      error !== null && 
+      typeof error === 'object' && 
+      '__typename' in error && 
+      GraphQLErrorFactory.isKnownErrorType((error as { __typename: string }).__typename)
     );
   }
 
@@ -703,20 +709,23 @@ ${hasErrorChecks}
   /**
    * Filters errors by type
    */
-  static filterErrorsByType<T>(errors: any[], typeName: string): T[] {
+  static filterErrorsByType<T>(errors: unknown[], typeName: string): T[] {
     if (!Array.isArray(errors)) {
       return [];
     }
     
     return errors.filter(error => 
-      error && error.__typename === typeName
+      error !== null && 
+      typeof error === 'object' && 
+      '__typename' in error && 
+      (error as { __typename: string }).__typename === typeName
     ) as T[];
   }
 
   /**
    * Gets first error of specific type
    */
-  static getFirstErrorOfType<T>(errors: any[], typeName: string): T | undefined {
+  static getFirstErrorOfType<T>(errors: unknown[], typeName: string): T | undefined {
     const filtered = this.filterErrorsByType<T>(errors, typeName);
     return filtered.length > 0 ? filtered[0] : undefined;
   }
