@@ -239,8 +239,8 @@ const authManager = new AuthManager(authConfig);
 
 ### Prerequisites
 
-- Node.js 16+ 
-- npm 7+
+- Node.js 18+ 
+- npm 8+
 - TypeScript 4.8+
 
 ### Setup

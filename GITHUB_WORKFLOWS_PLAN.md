@@ -38,7 +38,7 @@ The workflows will provide:
    - TypeScript type checking
 
 2. **Test Matrix**
-   - Node.js versions: 16.x, 18.x, 20.x
+   - Node.js versions: 18.x, 20.x
    - OS: ubuntu-latest, windows-latest, macos-latest
    - Run unit and integration tests
    - Generate coverage reports
@@ -124,7 +124,7 @@ The workflows will provide:
 - `CODECOV_TOKEN` - For coverage reporting (optional)
 
 ### Repository Variables:
-- `NODE_VERSION_MATRIX` - Default: `["16.x", "18.x", "20.x"]`
+- `NODE_VERSION_MATRIX` - Default: `["18.x", "20.x"]`
 - `OS_MATRIX` - Default: `["ubuntu-latest", "windows-latest", "macos-latest"]`
 
 ## Branch Protection Rules
@@ -135,7 +135,6 @@ Recommend setting up these branch protection rules for `main`:
 - ✅ Require branches to be up to date before merging
 - ✅ Required status checks:
   - `ci / lint-and-format`
-  - `ci / test (ubuntu-latest, 16.x)`
   - `ci / test (ubuntu-latest, 18.x)`
   - `ci / test (ubuntu-latest, 20.x)`
   - `ci / build-validation`
