@@ -34,7 +34,7 @@ jobs:
         run: npm run format:check
 
       - name: TypeScript type check
-        run: npx tsc --noEmit
+        run: npx tsc --noEmit --project tsconfig.types.json
 
   test:
     name: Test (Node ${{ matrix.node-version }})
