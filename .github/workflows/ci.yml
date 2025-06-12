@@ -33,6 +33,9 @@ jobs:
       - name: Check Prettier formatting
         run: npm run format:check
 
+      - name: Run GraphQL code generation
+        run: npm run codegen
+
       - name: TypeScript type check
         run: npx tsc --noEmit --project tsconfig.types.json
 
