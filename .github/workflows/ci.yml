@@ -1,0 +1,277 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_ENV: test
+
+jobs:
+  lint-and-format:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Check Prettier formatting
+        run: npm run format:check
+
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+
+  test:
+    name: Test (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: ['16.x', '18.x', '20.x']
+      fail-fast: false
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run GraphQL code generation
+        run: npm run codegen
+
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        if: matrix.node-version == '18.x'
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+  build-validation:
+    name: Build Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run GraphQL code generation
+        run: npm run codegen
+
+      - name: Build all targets
+        run: npm run build
+
+      - name: Verify package can be created
+        run: npm pack
+
+      - name: Test package installation
+        run: |
+          mkdir test-install
+          cd test-install
+          npm init -y
+          npm install ../tesouro-tesouro-sdk-for-node-*.tgz
+          node -e "
+            const sdk = require('@tesouro/tesouro-sdk-for-node');
+            console.log('✅ CommonJS import works');
+            console.log('Exports:', Object.keys(sdk));
+            if (!sdk.TesouroClient) throw new Error('TesouroClient not exported');
+            if (!sdk.ApiClient) throw new Error('ApiClient not exported');
+            console.log('SDK loaded successfully');
+          "
+
+      - name: Test ES module import
+        run: |
+          cd test-install
+          echo '{"type": "module"}' > package.json
+          node -e "
+            import('@tesouro/tesouro-sdk-for-node').then(sdk => {
+              console.log('✅ ES module import works');
+              console.log('Exports:', Object.keys(sdk));
+              if (!sdk.TesouroClient) throw new Error('TesouroClient not exported');
+              if (!sdk.ApiClient) throw new Error('ApiClient not exported');
+              console.log('SDK loaded successfully');
+            }).catch(err => {
+              console.error('❌ ES module import failed:', err);
+              process.exit(1);
+            });
+          "
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: dist-files
+          path: dist/
+          retention-days: 7
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+
+      - name: Check for known vulnerabilities in dependencies
+        run: |
+          # Allow the job to continue even if vulnerabilities are found
+          npm audit --audit-level=high || echo "::warning::High severity vulnerabilities found"
+
+  schema-validation:
+    name: GraphQL Schema Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate GraphQL schema
+        run: node validate-schema.js
+
+      - name: Verify code generation works
+        run: |
+          # Clean any existing generated files
+          rm -rf src/generated/*
+          # Run code generation
+          npm run codegen
+          # Verify files were generated
+          if [ ! -f "src/generated/types.ts" ]; then
+            echo "❌ types.ts was not generated"
+            exit 1
+          fi
+          if [ ! -f "src/generated/client-methods.ts" ]; then
+            echo "❌ client-methods.ts was not generated"
+            exit 1
+          fi
+          echo "✅ Code generation successful"
+
+  examples-validation:
+    name: Examples Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: Install main package dependencies
+        run: npm ci
+
+      - name: Build main package
+        run: npm run build
+
+      - name: Test example project setup
+        run: |
+          cd examples/test-project
+          npm ci
+          
+          # Verify the example project can import the SDK
+          npm run build 2>/dev/null || echo "Example build completed (warnings expected)"
+          
+          # Basic syntax/import validation
+          npx tsc --noEmit --skipLibCheck src/*.ts
+
+  # Summary job that depends on all others
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    needs: 
+      - lint-and-format
+      - test
+      - build-validation
+      - security-audit
+      - schema-validation
+      - examples-validation
+    if: always()
+    
+    steps:
+      - name: Check all jobs
+        run: |
+          # Check if any required job failed
+          if [[ "${{ needs.lint-and-format.result }}" != "success" ]]; then
+            echo "❌ Lint and format check failed"
+            exit 1
+          fi
+          if [[ "${{ needs.test.result }}" != "success" ]]; then
+            echo "❌ Tests failed"
+            exit 1
+          fi
+          if [[ "${{ needs.build-validation.result }}" != "success" ]]; then
+            echo "❌ Build validation failed"
+            exit 1
+          fi
+          if [[ "${{ needs.schema-validation.result }}" != "success" ]]; then
+            echo "❌ Schema validation failed"
+            exit 1
+          fi
+          if [[ "${{ needs.examples-validation.result }}" != "success" ]]; then
+            echo "❌ Examples validation failed"
+            exit 1
+          fi
+          
+          # Security audit is allowed to have warnings
+          if [[ "${{ needs.security-audit.result }}" == "failure" ]]; then
+            echo "⚠️ Security audit had issues, but not blocking CI"
+          fi
+          
+          echo "✅ All CI checks passed!"

@@ -1,0 +1,257 @@
+name: Security
+
+on:
+  schedule:
+    # Run security scan every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    # Allow manual trigger
+  push:
+    branches: [ main ]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/security.yml'
+
+env:
+  NODE_ENV: test
+
+jobs:
+  dependency-audit:
+    name: Dependency Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit (high/critical only)
+        run: |
+          echo "🔍 Running npm audit for high and critical vulnerabilities..."
+          npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Generate detailed audit report
+        run: |
+          echo "📊 Generating detailed audit report..."
+          npm audit --json > audit-report.json || true
+          
+          # Create human-readable summary
+          echo "# Security Audit Report" > audit-summary.md
+          echo "Generated on: $(date)" >> audit-summary.md
+          echo "" >> audit-summary.md
+          
+          # Check if there are any vulnerabilities
+          VULN_COUNT=$(cat audit-report.json | jq '.metadata.vulnerabilities.total // 0' 2>/dev/null || echo "0")
+          
+          if [ "$VULN_COUNT" -gt 0 ]; then
+            echo "## 🚨 Vulnerabilities Found: $VULN_COUNT" >> audit-summary.md
+            echo "" >> audit-summary.md
+            
+            # Extract high/critical vulnerabilities
+            HIGH_COUNT=$(cat audit-report.json | jq '.metadata.vulnerabilities.high // 0' 2>/dev/null || echo "0")
+            CRITICAL_COUNT=$(cat audit-report.json | jq '.metadata.vulnerabilities.critical // 0' 2>/dev/null || echo "0")
+            
+            echo "- Critical: $CRITICAL_COUNT" >> audit-summary.md
+            echo "- High: $HIGH_COUNT" >> audit-summary.md
+            echo "" >> audit-summary.md
+            echo "Please review the vulnerabilities and update dependencies as needed." >> audit-summary.md
+          else
+            echo "## ✅ No vulnerabilities found!" >> audit-summary.md
+          fi
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-audit-report
+          path: |
+            audit-report.json
+            audit-summary.md
+          retention-days: 30
+
+      - name: Check for critical vulnerabilities
+        run: |
+          CRITICAL_COUNT=$(cat audit-report.json | jq '.metadata.vulnerabilities.critical // 0' 2>/dev/null || echo "0")
+          if [ "$CRITICAL_COUNT" -gt 0 ]; then
+            echo "❌ Critical vulnerabilities found: $CRITICAL_COUNT"
+            echo "Please address these immediately!"
+            exit 1
+          else
+            echo "✅ No critical vulnerabilities found"
+          fi
+
+  codeql-analysis:
+    name: CodeQL Security Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'javascript' ]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-and-quality
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run code generation (for complete analysis)
+        run: npm run codegen
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+        with:
+          category: "/language:${{matrix.language}}"
+
+  license-check:
+    name: License Compliance Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install license checker
+        run: npm install -g license-checker
+
+      - name: Check licenses
+        run: |
+          echo "📄 Checking dependency licenses..."
+          license-checker --json --out licenses.json
+          
+          # Create summary report
+          echo "# License Report" > license-summary.md
+          echo "Generated on: $(date)" >> license-summary.md
+          echo "" >> license-summary.md
+          
+          # Count licenses by type
+          echo "## License Distribution" >> license-summary.md
+          license-checker --summary >> license-summary.md
+          
+          # Check for problematic licenses
+          PROBLEMATIC_LICENSES="GPL|AGPL|LGPL|CPAL|EPL|MPL"
+          if license-checker --excludePrivatePackages | grep -E "$PROBLEMATIC_LICENSES"; then
+            echo "" >> license-summary.md
+            echo "⚠️ **Warning**: Potentially problematic licenses found!" >> license-summary.md
+            echo "Please review these licenses for compatibility with your project." >> license-summary.md
+          else
+            echo "" >> license-summary.md
+            echo "✅ All licenses appear to be permissive." >> license-summary.md
+          fi
+
+      - name: Upload license report
+        uses: actions/upload-artifact@v3
+        with:
+          name: license-report
+          path: |
+            licenses.json
+            license-summary.md
+          retention-days: 30
+
+  secrets-scan:
+    name: Secrets Detection
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for secret scanning
+
+      - name: Run TruffleHog OSS
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [dependency-audit, codeql-analysis, license-check, secrets-scan]
+    if: always()
+    
+    steps:
+      - name: Download all reports
+        uses: actions/download-artifact@v3
+        continue-on-error: true
+
+      - name: Create security summary
+        run: |
+          echo "# 🛡️ Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Scan completed on: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Check job results
+          echo "## Job Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ needs.dependency-audit.result }}" == "success" ]]; then
+            echo "| Dependency Audit | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Dependency Audit | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ needs.codeql-analysis.result }}" == "success" ]]; then
+            echo "| CodeQL Analysis | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| CodeQL Analysis | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ needs.license-check.result }}" == "success" ]]; then
+            echo "| License Check | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| License Check | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ needs.secrets-scan.result }}" == "success" ]]; then
+            echo "| Secrets Scan | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Secrets Scan | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Add recommendations
+          echo "## 📋 Recommendations" >> $GITHUB_STEP_SUMMARY
+          echo "- Review any failed checks above" >> $GITHUB_STEP_SUMMARY
+          echo "- Keep dependencies updated regularly" >> $GITHUB_STEP_SUMMARY
+          echo "- Monitor security advisories for your dependencies" >> $GITHUB_STEP_SUMMARY
+          echo "- Consider using automated dependency updates (Dependabot)" >> $GITHUB_STEP_SUMMARY
