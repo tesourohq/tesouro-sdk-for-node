@@ -1,0 +1,20 @@
+echo "🔍 Running pre-commit hook: linting, formatting, and full test coverage verification"
+
+# Clean any stale build artifacts and test files
+echo "🧹 Cleaning stale build artifacts and test files..."
+npm run clean
+
+# Run lint-staged for modified files
+npx lint-staged
+
+# Run the full test suite (unit + integration) with coverage
+echo "📊 Running full test suite with coverage..."
+npm run test:coverage
+
+# Check if the test command succeeded
+if [ $? -ne 0 ]; then
+  echo "❌ Tests failed. Commit aborted."
+  exit 1
+fi
+
+echo "✅ All tests passed and coverage thresholds met. Commit allowed."

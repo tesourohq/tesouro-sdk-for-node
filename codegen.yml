@@ -1,0 +1,84 @@
+overwrite: true
+schema: "./schema.graphql"
+generates:
+  src/generated/types.ts:
+    plugins:
+      - "typescript"
+    config:
+      # Scalar type mappings
+      scalars:
+        DateTime: Date
+        Date: string  # Date-only format (YYYY-MM-DD)
+        ZonedDateTime: Date
+        LocalTime: string
+        TimeSpan: string
+        UUID: string
+        Decimal: number
+        DecimalAmount: number
+        DecimalAmount6: number
+        Long: number
+        Email: string
+        URL: string
+        Percentage: number
+        CardNumber: string
+        Max36Text: string
+        Max100Text: string
+        Max50Text: string
+        Max15Text: string
+        NumericMonth: number
+        NumericYear2Digits: number
+        NumericYear4Digits: number
+        Exact4Digits: string
+        Max2Digits: string
+        CurrencyCodeAlpha: string
+        FieldSet: string
+        openfed__Scope: string
+      
+      # Naming conventions
+      typesPrefix: ""
+      typesSuffix: ""
+      enumsAsTypes: false
+      enumsAsConst: true
+      
+      # Generate helpful comments
+      addCommentsToGeneratedCode: true
+      
+      # Avoid generating React-specific code
+      skipTypename: false
+      withHooks: false
+      withComponent: false
+      withHOC: false
+      
+      # Type safety options
+      strictScalars: true
+      defaultScalarType: unknown
+      
+      # Output formatting
+      declarationKind: "interface"
+      
+      # Input/Output type generation
+      onlyOperationTypes: false
+      omitObjectTypes: false
+      
+      # Fragment handling
+      fragmentVariables: true
+      
+      # Enum handling
+      constEnums: false
+      
+      # Additional type safety
+      preResolveTypes: true
+      skipDocumentsValidation: false
+      
+      # Avoid any types where possible  
+      avoidOptionals: false
+
+  src/generated/client-methods.ts:
+    plugins:
+      - "./codegen-plugin.js"
+    config:
+      # Custom plugin configuration
+      methodPrefix: ""
+      methodSuffix: ""
+      generateDocs: true
+      clientImportPath: "../client"

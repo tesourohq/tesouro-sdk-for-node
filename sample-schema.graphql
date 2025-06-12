@@ -1,0 +1,164 @@
+# Custom scalar types
+scalar DateTime
+scalar JSON
+
+# User type with core properties
+type User {
+  """Unique identifier for the user"""
+  id: ID!
+  
+  """User's email address"""
+  email: String!
+  
+  """User's display name"""
+  name: String!
+  
+  """When the user account was created"""
+  createdAt: DateTime!
+  
+  """User's associated transactions"""
+  transactions: [Transaction!]!
+}
+
+# Transaction status enumeration
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+# Currency enumeration
+enum Currency {
+  USD
+  EUR
+  BRL
+  GBP
+}
+
+# Transaction type for financial operations
+type Transaction {
+  """Unique identifier for the transaction"""
+  id: ID!
+  
+  """Transaction amount in minor units (e.g., cents)"""
+  amount: Int!
+  
+  """Currency of the transaction"""
+  currency: Currency!
+  
+  """Current status of the transaction"""
+  status: TransactionStatus!
+  
+  """User who owns this transaction"""
+  user: User!
+  
+  """When the transaction was created"""
+  createdAt: DateTime!
+  
+  """When the transaction was last updated"""
+  updatedAt: DateTime!
+  
+  """Additional metadata for the transaction"""
+  metadata: JSON
+}
+
+# Input type for creating a new user
+input CreateUserInput {
+  """User's email address (must be unique)"""
+  email: String!
+  
+  """User's display name"""
+  name: String!
+}
+
+# Input type for processing a transaction
+input ProcessTransactionInput {
+  """ID of the user making the transaction"""
+  userId: ID!
+  
+  """Transaction amount in minor units"""
+  amount: Int!
+  
+  """Currency for the transaction"""
+  currency: Currency!
+  
+  """Optional metadata for the transaction"""
+  metadata: JSON
+}
+
+# Input type for filtering transactions
+input TransactionFilter {
+  """Filter by transaction status"""
+  status: TransactionStatus
+  
+  """Filter by currency"""
+  currency: Currency
+  
+  """Filter by minimum amount"""
+  minAmount: Int
+  
+  """Filter by maximum amount"""
+  maxAmount: Int
+  
+  """Filter by date range start"""
+  fromDate: DateTime
+  
+  """Filter by date range end"""
+  toDate: DateTime
+}
+
+# Query operations
+type Query {
+  """Get a user by their ID"""
+  getUser(id: ID!): User
+  
+  """List all users with optional pagination"""
+  listUsers(limit: Int = 10, offset: Int = 0): [User!]!
+  
+  """Get a transaction by its ID"""
+  getTransaction(id: ID!): Transaction
+  
+  """List transactions with optional filtering and pagination"""
+  listTransactions(
+    filter: TransactionFilter
+    limit: Int = 10
+    offset: Int = 0
+  ): [Transaction!]!
+  
+  """Get transactions for a specific user"""
+  getUserTransactions(
+    userId: ID!
+    filter: TransactionFilter
+    limit: Int = 10
+    offset: Int = 0
+  ): [Transaction!]!
+}
+
+# Mutation operations
+type Mutation {
+  """Create a new user account"""
+  createUser(input: CreateUserInput!): User!
+  
+  """Process a new transaction"""
+  processTransaction(input: ProcessTransactionInput!): Transaction!
+  
+  """Update transaction status (admin operation)"""
+  updateTransactionStatus(
+    transactionId: ID!
+    status: TransactionStatus!
+  ): Transaction!
+  
+  """Cancel a pending transaction"""
+  cancelTransaction(transactionId: ID!): Transaction!
+}
+
+# Subscription operations (for real-time updates)
+type Subscription {
+  """Subscribe to transaction status changes for a user"""
+  transactionUpdates(userId: ID!): Transaction!
+  
+  """Subscribe to all transaction updates (admin only)"""
+  allTransactionUpdates: Transaction!
+}
