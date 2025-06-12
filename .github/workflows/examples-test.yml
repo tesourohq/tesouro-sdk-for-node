@@ -2,7 +2,7 @@ name: Examples Test
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
     paths:
       - 'examples/**'
       - 'src/**'
@@ -10,7 +10,7 @@ on:
       - 'package-lock.json'
       - '.github/workflows/examples-test.yml'
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main ]
     paths:
       - 'examples/**'
       - 'src/**'
