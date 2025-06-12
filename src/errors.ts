@@ -614,8 +614,8 @@ export class ErrorUtils {
       return undefined;
     }
 
-    // TODO: Choose one specific request ID header as we finalize the API response format
-    // Common request ID header names
+    // Check for request ID headers in order of preference
+    // Following common standards for request tracing
     const requestIdHeaders = [
       'x-request-id',
       'x-trace-id',
