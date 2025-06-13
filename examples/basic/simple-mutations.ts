@@ -10,7 +10,7 @@ import {
   type MutationAuthorizeCustomerInitiatedTransactionArgs,
   type MutationCaptureAuthorizationArgs,
   type MutationRefundPreviousPaymentArgs,
-  type CustomerInitiatedTransactionAuthorizationInput,
+  type AuthorizeCustomerInitiatedTransactionInput,
   type CaptureAuthorizationInput,
   type RefundPreviousPaymentInput,
   GraphQLError,
@@ -34,7 +34,7 @@ export async function simpleAuthorization() {
   console.log('🔄 Example 1: Simple Authorization...');
 
   try {
-    const input: CustomerInitiatedTransactionAuthorizationInput = {
+    const input: AuthorizeCustomerInitiatedTransactionInput = {
       acceptorId: 'f5f5dc3d-bc68-4f43-bcc5-dd8fe88fda76', // Replace with your acceptor ID
       transactionReference: `auth-${Date.now()}`,
       automaticCapture: 'NEVER',
@@ -91,7 +91,7 @@ export async function authorizationAndCapture() {
     // Step 1: Authorize
     console.log('📋 Step 1: Authorizing payment...');
     
-    const authInput: CustomerInitiatedTransactionAuthorizationInput = {
+    const authInput: AuthorizeCustomerInitiatedTransactionInput = {
       acceptorId: 'f5f5dc3d-bc68-4f43-bcc5-dd8fe88fda76', // Replace with your acceptor ID
       transactionReference: `auth-capture-${Date.now()}`,
       automaticCapture: 'NEVER',
@@ -272,7 +272,7 @@ export async function handleValidationError() {
 
   try {
     // Intentionally create invalid input (missing required fields)
-    const invalidInput: CustomerInitiatedTransactionAuthorizationInput = {
+    const invalidInput: AuthorizeCustomerInitiatedTransactionInput = {
       // Missing acceptorId (required field)
       transactionReference: `validation-test-${Date.now()}`,
       automaticCapture: 'NEVER',
@@ -291,7 +291,7 @@ export async function handleValidationError() {
           }
         }
       }
-    } as CustomerInitiatedTransactionAuthorizationInput; // Type assertion to bypass TypeScript validation
+    } as AuthorizeCustomerInitiatedTransactionInput; // Type assertion to bypass TypeScript validation
 
     console.log('💳 Attempting authorization with invalid input...');
     console.log('⚠️  Note: This should fail due to missing acceptorId and empty account number');
