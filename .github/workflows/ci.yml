@@ -298,7 +298,7 @@ jobs:
           import './${example_file#src/}';
           console.log('✅ Import successful for ${example_file}');
           EOF
-              npx ts-node --transpile-only test_import.ts
+              npx tsx test_import.ts
               rm test_import.ts
             fi
           done
