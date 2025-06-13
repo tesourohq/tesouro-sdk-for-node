@@ -12,7 +12,7 @@ import {
   type PaymentTransactionFilterInput,
   type PagingInput,
   type GraphQLResult
-} from '@tesouro/tesouro-sdk-for-node';
+} from '../../src/index';
 
 // Setup client using the generated client
 function setupClient(): TesouroClient {

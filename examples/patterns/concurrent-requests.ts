@@ -18,7 +18,7 @@ import {
   type PaymentTransactionSummaryInput,
   type PagingInput,
   type GraphQLResult
-} from '@tesouro/tesouro-sdk-for-node';
+} from '../../src/index';
 
 // Setup client using the generated client
 function setupClient(): TesouroClient {
@@ -376,7 +376,7 @@ async function performanceComparison() {
         input: { paging: { skip: 3, take: 3 }, where }
       }),
       () => client.paymentTransactionSummaries({
-        input: { paging: { skip: 0, take: 5 }, where: { transactionActivityDate: where.transactionActivityDate } }
+        input: { paging: { skip: 0, take: 5 }, where: where as any }
       })
     ];
 
@@ -417,7 +417,7 @@ async function performanceComparison() {
     console.log('🔍 Verifying data consistency...');
     const sequentialTransactionCount = sequentialResults
       .filter(r => 'paymentTransactions' in r.data)
-      .reduce((sum, r) => sum + r.data.paymentTransactions.items.length, 0);
+      .reduce((sum, r) => sum + ('paymentTransactions' in r.data ? r.data.paymentTransactions.items.length : 0), 0);
       
     const concurrentTransactionCount = concurrentResults
       .filter(r => 'paymentTransactions' in r.data)
@@ -535,22 +535,22 @@ async function resilientConcurrentRequests() {
     console.log(`\n🎯 Resilient requests completed in ${totalTime}ms\n`);
     
     // Analyze results
-    const successful = results.filter(r => r.success);
-    const failed = results.filter(r => !r.success);
+    const successful = results.filter(r => r && r.success);
+    const failed = results.filter(r => r && !r.success);
     
     console.log(`📊 Results Summary:`);
     console.log(`   ✅ Successful requests: ${successful.length}/${results.length}`);
     console.log(`   ❌ Failed requests: ${failed.length}/${results.length}`);
     
     successful.forEach(result => {
-      console.log(`   ✅ ${result.name}: Success after ${result.attempts} attempt(s)`);
+      console.log(`   ✅ ${result?.name}: Success after ${result?.attempts} attempt(s)`);
     });
     
     failed.forEach(result => {
-      console.log(`   ❌ ${result.name}: Failed after ${result.attempts} attempts`);
+      console.log(`   ❌ ${result?.name}: Failed after ${result?.attempts} attempts`);
     });
     
-    const totalAttempts = results.reduce((sum, r) => sum + r.attempts, 0);
+    const totalAttempts = results.reduce((sum, r) => sum + (r?.attempts || 0), 0);
     console.log(`   🔄 Total attempts made: ${totalAttempts}`);
     console.log(`   📈 Success rate: ${((successful.length / results.length) * 100).toFixed(1)}%\n`);
     

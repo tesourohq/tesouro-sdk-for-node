@@ -15,7 +15,7 @@ import {
   type RefundPreviousPaymentInput,
   GraphQLError,
   NetworkError
-} from '@tesouro/tesouro-sdk-for-node';
+} from '../../src/index';
 
 // Setup client using the generated client
 function setupClient(): TesouroClient {
@@ -329,8 +329,8 @@ export async function handleValidationError() {
       
     } else {
       console.log('❓ Other Error Type:');
-      console.log(`  Type: ${error.constructor.name}`);
-      console.log(`  Message: ${error.message}`);
+      console.log(`  Type: ${(error as any).constructor.name}`);
+      console.log(`  Message: ${(error as any).message}`);
     }
     
     console.log('\n💡 In a real application, you would:');

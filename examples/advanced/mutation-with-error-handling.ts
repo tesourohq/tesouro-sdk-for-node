@@ -14,7 +14,7 @@ import {
   GraphQLError,
   NetworkError,
   SdkError
-} from '@tesouro/tesouro-sdk-for-node';
+} from '../../src/index';
 
 // Setup client using the generated client
 function setupClient(): TesouroClient {
@@ -109,7 +109,7 @@ export async function authorizePaymentWithErrorHandling(
         console.error('🔐 Authentication failed - check credentials');
       } else if (error.statusCode === 403) {
         console.error('🚫 Authorization failed - insufficient permissions');
-      } else if (error.statusCode >= 500) {
+      } else if (error.statusCode && error.statusCode >= 500) {
         console.error('🔧 Server error - try again later');
       }
       
@@ -252,13 +252,13 @@ export async function authorizeMultiplePayments(
       console.log(`✅ Payment ${i + 1} authorized successfully`);
       
     } catch (error) {
-      console.log(`❌ Payment ${i + 1} failed: ${error.message}`);
+      console.log(`❌ Payment ${i + 1} failed: ${(error as any).message}`);
       
       errors.push({
         index: i,
         merchantReference: payment.merchantReference,
         success: false,
-        error: error.message
+        error: (error as any).message
       });
     }
   }
