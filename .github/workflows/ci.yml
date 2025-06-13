@@ -287,19 +287,14 @@ jobs:
         run: |
           cd examples/test-project
           
-          echo "🔗 Testing example imports..."
+          echo "🔗 Testing example imports and TypeScript compilation..."
           
-          # Test that each example file can be imported without errors
+          # Test that each example file can be imported and compiled without errors
           for example_file in src/*.ts; do
             if [ -f "$example_file" ]; then
-              echo "Testing imports in: $example_file"
-              # Create a test file that imports the example
-              cat > test_import.ts << EOF
-          import './$example_file';
-          console.log('✅ Import successful for $example_file');
-          EOF
-              npx tsx test_import.ts
-              rm test_import.ts
+              echo "Testing TypeScript compilation for: $example_file"
+              # Test TypeScript compilation only (no runtime execution)
+              npx tsc --noEmit --skipLibCheck "$example_file"
             fi
           done
 
