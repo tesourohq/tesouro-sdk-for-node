@@ -8,8 +8,7 @@
 import { 
   TesouroClient, 
   type MutationAuthorizeCustomerInitiatedTransactionArgs,
-  type CustomerInitiatedTransactionAuthorizationInput,
-  type AuthorizeCustomerInitiatedTransactionResponse,
+  type AuthorizeCustomerInitiatedTransactionInput,
   type GraphQLResult,
   GraphQLError,
   NetworkError,
@@ -30,43 +29,50 @@ function setupClient(): TesouroClient {
 export async function authorizePaymentWithErrorHandling(
   amount: number,
   currency: string,
-  cardToken: string,
+  cardNumber: string,
   merchantReference: string
 ) {
   const client = setupClient();
 
   try {
     // Prepare mutation input
-    const input: CustomerInitiatedTransactionAuthorizationInput = {
-      amount,
-      currency,
-      cardToken,
-      merchantReference,
-      // Optional fields can be added here
-      description: `Payment authorization for ${merchantReference}`,
-      metadata: {
-        source: 'sdk-example',
-        timestamp: new Date().toISOString()
+    const input: AuthorizeCustomerInitiatedTransactionInput = {
+      acceptorId: 'f5f5dc3d-bc68-4f43-bcc5-dd8fe88fda76', // Replace with your acceptor ID
+      transactionReference: merchantReference,
+      automaticCapture: 'NEVER',
+      transactionAmountDetails: {
+        totalAmount: amount,
+        currency
+      },
+      paymentMethodDetails: {
+        cardWithPanDetails: {
+          accountNumber: cardNumber,
+          paymentEntryMode: 'KEYED',
+          expirationMonth: 12,
+          expirationYear: 2025,
+          securityCode: {
+            value: '123'
+          }
+        }
       }
     };
 
     const variables: MutationAuthorizeCustomerInitiatedTransactionArgs = {
-      input
+      authorizeCustomerInitiatedTransactionInput: input
     };
 
     console.log('🔄 Authorizing payment transaction...');
     console.log('💳 Transaction details:', {
       amount: `${amount} ${currency}`,
       merchantReference,
-      description: input.description
+      automaticCapture: input.automaticCapture
     });
 
     // Execute the mutation - SDK will throw exceptions for any errors
-    const result: GraphQLResult<{ authorizeCustomerInitiatedTransaction: AuthorizeCustomerInitiatedTransactionResponse }> = 
-      await client.authorizeCustomerInitiatedTransaction(variables);
+    const result = await client.authorizeCustomerInitiatedTransaction(variables);
 
     // Process successful response
-    const authResponse = result.data!.authorizeCustomerInitiatedTransaction;
+    const authResponse = result.data.authorizeCustomerInitiatedTransaction.authorizationResponse;
     
     console.log('✅ Payment authorization completed');
     console.log('📋 Authorization response:', JSON.stringify(authResponse, null, 2));
@@ -125,7 +131,7 @@ export async function authorizePaymentWithErrorHandling(
 export async function authorizePaymentWithValidation(
   amount: number,
   currency: string,
-  cardToken: string,
+  cardNumber: string,
   merchantReference: string
 ) {
   // Input validation
@@ -139,8 +145,8 @@ export async function authorizePaymentWithValidation(
     validationErrors.push('Currency must be a 3-character ISO code');
   }
   
-  if (!cardToken || cardToken.trim().length === 0) {
-    validationErrors.push('Card token is required');
+  if (!cardNumber || cardNumber.trim().length === 0) {
+    validationErrors.push('Card number is required');
   }
   
   if (!merchantReference || merchantReference.trim().length === 0) {
@@ -159,7 +165,7 @@ export async function authorizePaymentWithValidation(
   return await authorizePaymentWithErrorHandling(
     amount,
     currency,
-    cardToken,
+    cardNumber,
     merchantReference
   );
 }
@@ -168,56 +174,37 @@ export async function authorizePaymentWithValidation(
 export async function authorizePaymentWithDetailedResponse(
   amount: number,
   currency: string,
-  cardToken: string,
+  cardNumber: string,
   merchantReference: string
 ) {
   try {
     const response = await authorizePaymentWithErrorHandling(
       amount,
       currency,
-      cardToken,
+      cardNumber,
       merchantReference
     );
     
     // Analyze the response in detail
     console.log('\n📊 Detailed Response Analysis:');
     
-    if (response.success) {
+    if (response) {
       console.log('✅ Authorization successful');
       
       if (response.transactionId) {
         console.log(`🆔 Transaction ID: ${response.transactionId}`);
       }
       
-      if (response.authorizationCode) {
-        console.log(`🔐 Authorization Code: ${response.authorizationCode}`);
+      if (response.paymentId) {
+        console.log(`💳 Payment ID: ${response.paymentId}`);
       }
       
-      if (response.processingTime) {
-        console.log(`⏱️  Processing Time: ${response.processingTime}ms`);
-      }
-      
-      // Check for warnings or additional information
-      if (response.warnings && response.warnings.length > 0) {
-        console.log('⚠️  Warnings:');
-        response.warnings.forEach(warning => {
-          console.log(`  - ${warning.message}`);
-        });
+      if (response.activityDate) {
+        console.log(`📅 Activity Date: ${response.activityDate}`);
       }
       
     } else {
-      console.log('❌ Authorization failed');
-      
-      if (response.errors && response.errors.length > 0) {
-        console.log('🔍 Error details:');
-        response.errors.forEach(error => {
-          console.log(`  - ${error.code}: ${error.message}`);
-        });
-      }
-      
-      if (response.declineReason) {
-        console.log(`📋 Decline Reason: ${response.declineReason}`);
-      }
+      console.log('❌ Authorization failed - no response received');
     }
     
     return response;
@@ -233,7 +220,7 @@ export async function authorizeMultiplePayments(
   payments: Array<{
     amount: number;
     currency: string;
-    cardToken: string;
+    cardNumber: string;
     merchantReference: string;
   }>
 ) {
@@ -250,7 +237,7 @@ export async function authorizeMultiplePayments(
       const result = await authorizePaymentWithValidation(
         payment.amount,
         payment.currency,
-        payment.cardToken,
+        payment.cardNumber,
         payment.merchantReference
       );
       
@@ -306,7 +293,7 @@ export async function runMutationExamples() {
   const testPayment = {
     amount: 100.50,
     currency: 'USD',
-    cardToken: 'test-card-token-123',
+    cardNumber: '4100000000000001',
     merchantReference: `test-payment-${Date.now()}`
   };
 
@@ -316,7 +303,7 @@ export async function runMutationExamples() {
     await authorizePaymentWithErrorHandling(
       testPayment.amount,
       testPayment.currency,
-      testPayment.cardToken,
+      testPayment.cardNumber,
       testPayment.merchantReference
     );
     console.log('\n---\n');
@@ -326,7 +313,7 @@ export async function runMutationExamples() {
     await authorizePaymentWithValidation(
       testPayment.amount,
       testPayment.currency,
-      testPayment.cardToken,
+      testPayment.cardNumber,
       `${testPayment.merchantReference}-validated`
     );
     console.log('\n---\n');
@@ -336,7 +323,7 @@ export async function runMutationExamples() {
     await authorizePaymentWithDetailedResponse(
       testPayment.amount,
       testPayment.currency,
-      testPayment.cardToken,
+      testPayment.cardNumber,
       `${testPayment.merchantReference}-detailed`
     );
     console.log('\n---\n');
