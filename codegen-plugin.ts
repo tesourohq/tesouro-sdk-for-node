@@ -763,12 +763,14 @@ function generateMethodCode(
   methodLines.push(`  async ${methodName}(${params}): Promise<GraphQLResult<{ ${operation.name}: ${operation.resultType} }>> {`);
   methodLines.push(`    const ${operation.type}String = \`${operation.operationString}\`;`);
   methodLines.push(`    `);
-  methodLines.push(`    return this.${methodCall}<`);
-  methodLines.push(`      { ${operation.name}: ${operation.resultType} }`);
   if (operation.hasVariables) {
-    methodLines.push(`      , ${operation.variablesType}`);
+    methodLines.push(`    return this.${methodCall}<`);
+    methodLines.push(`      { ${operation.name}: ${operation.resultType} },`);
+    methodLines.push(`      ${operation.variablesType}`);
+    methodLines.push(`    >(${operation.type}String, ${variablesArg}, options);`);
+  } else {
+    methodLines.push(`    return this.${methodCall}<{ ${operation.name}: ${operation.resultType} }>(${operation.type}String, {}, options);`);
   }
-  methodLines.push(`    >(${operation.type}String, ${variablesArg}, options);`);
   methodLines.push(`  }`);
   
   const methodSignatureAndBody = methodLines.join('\n');

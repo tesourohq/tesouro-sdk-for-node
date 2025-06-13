@@ -75,7 +75,7 @@ generates:
 
   src/generated/client-methods.ts:
     plugins:
-      - "./codegen-plugin.js"
+      - "./codegen-plugin.ts"
     config:
       # Custom plugin configuration
       methodPrefix: ""
