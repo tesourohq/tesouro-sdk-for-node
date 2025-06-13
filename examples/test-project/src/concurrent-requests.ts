@@ -125,7 +125,7 @@ async function parallelQueryExecution() {
         const transactions = result.data.paymentTransactions;
         console.log(`📄 Query ${index + 1}: Retrieved ${transactions.items.length} transactions`);
         transactions.items.slice(0, 2).forEach((tx, txIndex) => {
-          console.log(`   ${txIndex + 1}. ${tx.id} (${tx.__typename})`);
+          console.log(`   ${txIndex + 1}. ${tx.id}`);
         });
       }
     });
@@ -370,7 +370,7 @@ async function performanceComparison() {
         input: { paging: { skip: 3, take: 3 }, where }
       }),
       () => client.paymentTransactionSummaries({
-        input: { paging: { skip: 0, take: 5 }, where: { transactionActivityDate: where.transactionActivityDate } }
+        input: { paging: { skip: 0, take: 5 }, where: { transactionActivityDate: where.transactionActivityDate! } }
       })
     ];
 
@@ -411,11 +411,11 @@ async function performanceComparison() {
     console.log('🔍 Verifying data consistency...');
     const sequentialTransactionCount = sequentialResults
       .filter(r => 'paymentTransactions' in r.data)
-      .reduce((sum, r) => sum + r.data.paymentTransactions.items.length, 0);
+      .reduce((sum, r) => sum + ('paymentTransactions' in r.data ? r.data.paymentTransactions.items.length : 0), 0);
       
     const concurrentTransactionCount = concurrentResults
       .filter(r => 'paymentTransactions' in r.data)
-      .reduce((sum, r) => sum + r.data.paymentTransactions.items.length, 0);
+      .reduce((sum, r) => sum + ('paymentTransactions' in r.data ? r.data.paymentTransactions.items.length : 0), 0);
     
     console.log(`✅ Data consistency verified: Both approaches returned ${sequentialTransactionCount} transactions\n`);
     
@@ -535,11 +535,11 @@ async function resilientConcurrentRequests() {
     console.log(`   ❌ Failed requests: ${failed.length}/${results.length}`);
     
     successful.forEach(result => {
-      console.log(`   ✅ ${result.name}: Success after ${result.attempts} attempt(s)`);
+      console.log(`   ✅ ${result?.name}: Success after ${result?.attempts} attempt(s)`);
     });
     
     failed.forEach(result => {
-      console.log(`   ❌ ${result.name}: Failed after ${result.attempts} attempts`);
+      console.log(`   ❌ ${result?.name}: Failed after ${result?.attempts} attempts`);
     });
     
     const totalAttempts = results.reduce((sum, r) => sum + r.attempts, 0);

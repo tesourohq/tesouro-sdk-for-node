@@ -75,7 +75,7 @@ async function simpleManualPagination() {
         
         // Process items
         collection.items.forEach((transaction, index) => {
-          console.log(`   ${currentPage * pageSize + index + 1}. Transaction: ${transaction.id || 'N/A'} (${transaction.__typename})`);
+          console.log(`   ${currentPage * pageSize + index + 1}. Transaction: ${transaction.id || 'N/A'} (${transaction.transactionType})`);
         });
         console.log();
         
@@ -169,7 +169,7 @@ async function autoPaginationWithIterator() {
       console.log(`📖 Page ${pageNumber}: Retrieved ${page.length} transactions`);
       
       page.forEach((transaction, index) => {
-        console.log(`   ${totalItems + index + 1}. Transaction: ${transaction.id || 'N/A'} (${transaction.__typename})`);
+        console.log(`   ${totalItems + index + 1}. Transaction: ${transaction.id || 'N/A'} (${transaction.transactionType})`);
       });
       
       totalItems += page.length;
@@ -219,7 +219,7 @@ async function streamingPagination() {
     // Stream processor function
     const processTransaction = (transaction: PaymentTransaction, globalIndex: number) => {
       // Simulate processing work
-      console.log(`🔄 Processing transaction ${globalIndex}: ${transaction.id || 'N/A'} (${transaction.__typename})`);
+      console.log(`🔄 Processing transaction ${globalIndex}: ${transaction.id || 'N/A'} (${transaction.transactionType})`);
       
       // Here you could:
       // - Transform the data
@@ -332,7 +332,7 @@ async function bulkFetchingPattern() {
         await Promise.all(chunk.map(async (transaction, index) => {
           // Simulate async processing work
           await new Promise(resolve => setTimeout(resolve, 10));
-          console.log(`     ✓ Processed: ${transaction.id || `Item ${totalProcessed + i + index + 1}`} (${transaction.__typename})`);
+          console.log(`     ✓ Processed: ${transaction.id || `Item ${totalProcessed + i + index + 1}`} (${transaction.transactionType})`);
         }));
       }
       
@@ -366,10 +366,59 @@ async function bulkFetchingPattern() {
 }
 
 /**
+ * Helper function for retry logic with exponential backoff
+ */
+async function fetchPageWithRetry(
+  client: TesouroClient,
+  paging: PagingInput,
+  where: PaymentTransactionFilterInput,
+  pageNumber: number,
+  maxRetries: number,
+  retryCount: { value: number }
+): Promise<PaymentTransactionCollection> {
+  let attempts = 0;
+  
+  while (attempts <= maxRetries) {
+    try {
+      const variables: QueryPaymentTransactionsArgs = {
+        input: { paging, where }
+      };
+      
+      console.log(`🔄 Attempt ${attempts + 1} for page ${pageNumber} (skip: ${paging.skip}, take: ${paging.take})`);
+      
+      const result = await client.paymentTransactions(variables, {
+        timeout: 10000 // 10 second timeout
+      });
+      
+      console.log(`✅ Page ${pageNumber} fetched successfully`);
+      return result.data.paymentTransactions;
+      
+    } catch (error) {
+      attempts++;
+      retryCount.value++;
+      
+      console.log(`❌ Attempt ${attempts} failed:`, error instanceof Error ? error.message : error);
+      
+      if (attempts > maxRetries) {
+        console.log(`🚫 Max retries (${maxRetries}) exceeded for page ${pageNumber}`);
+        throw error;
+      }
+      
+      // Exponential backoff
+      const backoffMs = Math.pow(2, attempts - 1) * 1000;
+      console.log(`⏳ Retrying in ${backoffMs}ms...`);
+      await new Promise(resolve => setTimeout(resolve, backoffMs));
+    }
+  }
+  
+  throw new Error('Should not reach here');
+}
+
+/**
  * Pattern 5: Advanced Pagination with Error Recovery
  * Demonstrates robust pagination with retry logic and error handling
  */
-async function advancedPaginationWithRetry() {
+async function advancedPaginationWithRetry(): Promise<void> {
   const client = setupClient();
   
   console.log('🛡️  Pattern 5: Advanced Pagination with Error Recovery');
@@ -379,7 +428,7 @@ async function advancedPaginationWithRetry() {
     const pageSize = 3;
     let totalProcessed = 0;
     let pageNumber = 1;
-    let retryCount = 0;
+    const retryCount = { value: 0 }; // Use object to pass by reference
     const maxRetries = 3;
     
     // Date range for filtering
@@ -395,45 +444,6 @@ async function advancedPaginationWithRetry() {
     
     console.log('🚀 Starting resilient pagination with retry logic...');
     
-    async function fetchPageWithRetry(paging: PagingInput): Promise<PaymentTransactionCollection> {
-      let attempts = 0;
-      
-      while (attempts <= maxRetries) {
-        try {
-          const variables: QueryPaymentTransactionsArgs = {
-            input: { paging, where }
-          };
-          
-          console.log(`🔄 Attempt ${attempts + 1} for page ${pageNumber} (skip: ${paging.skip}, take: ${paging.take})`);
-          
-          const result = await client.paymentTransactions(variables, {
-            timeout: 10000 // 10 second timeout
-          });
-          
-          console.log(`✅ Page ${pageNumber} fetched successfully`);
-          return result.data.paymentTransactions;
-          
-        } catch (error) {
-          attempts++;
-          retryCount++;
-          
-          console.log(`❌ Attempt ${attempts} failed:`, error instanceof Error ? error.message : error);
-          
-          if (attempts > maxRetries) {
-            console.log(`🚫 Max retries (${maxRetries}) exceeded for page ${pageNumber}`);
-            throw error;
-          }
-          
-          // Exponential backoff
-          const backoffMs = Math.pow(2, attempts - 1) * 1000;
-          console.log(`⏳ Retrying in ${backoffMs}ms...`);
-          await new Promise(resolve => setTimeout(resolve, backoffMs));
-        }
-      }
-      
-      throw new Error('Should not reach here');
-    }
-    
     // Pagination loop with retry logic
     let hasMorePages = true;
     
@@ -444,14 +454,14 @@ async function advancedPaginationWithRetry() {
       };
       
       try {
-        const collection = await fetchPageWithRetry(paging);
+        const collection = await fetchPageWithRetry(client, paging, where, pageNumber, maxRetries, retryCount);
         
         if (collection.items.length > 0) {
           console.log(`📖 Page ${pageNumber}: ${collection.items.length} transactions`);
           
           // Process items
           collection.items.forEach((transaction, index) => {
-            console.log(`   ${totalProcessed + index + 1}. ${transaction.id || 'N/A'} (${transaction.__typename})`);
+            console.log(`   ${totalProcessed + index + 1}. ${transaction.id || 'N/A'} (${transaction.transactionType})`);
           });
           
           totalProcessed += collection.items.length;
@@ -471,7 +481,7 @@ async function advancedPaginationWithRetry() {
     
     console.log(`\n🎉 Resilient pagination completed!`);
     console.log(`   📊 Total processed: ${totalProcessed} transactions`);
-    console.log(`   🔄 Total retries: ${retryCount}`);
+    console.log(`   🔄 Total retries: ${retryCount.value}`);
     console.log(`   📄 Pages fetched: ${pageNumber - 1}\n`);
     
   } catch (error) {
@@ -513,7 +523,17 @@ async function testPaginationPatterns() {
 }
 
 // Run if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Use require.main check for compatibility with both CommonJS and ESM
+const isMainModule = (() => {
+  try {
+    // Check if we're running as the main module
+    return process.argv[1] && process.argv[1].endsWith('pagination.ts');
+  } catch {
+    return false;
+  }
+})();
+
+if (isMainModule) {
   testPaginationPatterns();
 }
 

@@ -13,7 +13,7 @@ import {
   type MutationAuthorizeCustomerInitiatedTransactionArgs,
   type MutationCaptureAuthorizationArgs,
   type MutationRefundPreviousPaymentArgs,
-  type CustomerInitiatedTransactionAuthorizationInput,
+  type AuthorizeCustomerInitiatedTransactionInput,
   type CaptureAuthorizationInput,
   type RefundPreviousPaymentInput,
   GraphQLError,
@@ -37,7 +37,7 @@ async function simpleAuthorization() {
   console.log('🔄 Example 1: Simple Authorization...');
 
   try {
-    const input: CustomerInitiatedTransactionAuthorizationInput = {
+    const input: AuthorizeCustomerInitiatedTransactionInput = {
       acceptorId: 'f5f5dc3d-bc68-4f43-bcc5-dd8fe88fda76', // Replace with your acceptor ID
       transactionReference: randomUUID(),
       automaticCapture: 'NEVER',
@@ -49,8 +49,8 @@ async function simpleAuthorization() {
         cardWithPanDetails: {
           accountNumber: '4100000000000001',
           paymentEntryMode: 'KEYED',
-          expirationMonth: '12',
-          expirationYear: '2025',
+          expirationMonth: 12,
+          expirationYear: 2025,
           securityCode: {
             value: '123'
           }
@@ -94,7 +94,7 @@ async function completePaymentLifecycle() {
     // Step 1: Authorize the payment
     console.log('\n📋 Step 1: Authorizing payment...');
     
-    const authInput: CustomerInitiatedTransactionAuthorizationInput = {
+    const authInput: AuthorizeCustomerInitiatedTransactionInput = {
       acceptorId: 'f5f5dc3d-bc68-4f43-bcc5-dd8fe88fda76',
       transactionReference: randomUUID(),
       automaticCapture: 'NEVER', // Important: Don't auto-capture so we can manually capture later
