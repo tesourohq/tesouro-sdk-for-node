@@ -14,7 +14,7 @@ import {
   GraphQLError,
   NetworkError,
   SdkError
-} from '../../src/index';
+} from '@tesouro/tesouro-sdk-for-node';
 
 // Setup client using the generated client
 function setupClient(): TesouroClient {

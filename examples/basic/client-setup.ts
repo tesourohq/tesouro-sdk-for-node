@@ -5,7 +5,7 @@
  * with different configuration options.
  */
 
-import { createClient, ApiClient, type ApiClientConfig } from '../../src/index';
+import { createClient, ApiClient, type ApiClientConfig } from '@tesouro/tesouro-sdk-for-node';
 
 // Example 1: Basic client setup with minimal configuration
 export function createBasicClient(): ApiClient {

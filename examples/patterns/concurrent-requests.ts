@@ -18,7 +18,7 @@ import {
   type PaymentTransactionSummaryInput,
   type PagingInput,
   type GraphQLResult
-} from '../../src/index';
+} from '@tesouro/tesouro-sdk-for-node';
 
 // Setup client using the generated client
 function setupClient(): TesouroClient {
@@ -125,17 +125,17 @@ async function parallelQueryExecution() {
     console.log(`✅ All ${results.length} queries completed in ${totalTime}ms\n`);
     
     // Process results
-    results.forEach((result, index) => {
+    results.forEach((result: any, index: number) => {
       if ('paymentTransactions' in result.data) {
         const transactions = result.data.paymentTransactions;
         console.log(`📄 Query ${index + 1}: Retrieved ${transactions.items.length} transactions`);
-        transactions.items.slice(0, 2).forEach((tx, txIndex) => {
+        transactions.items.slice(0, 2).forEach((tx: any, txIndex: number) => {
           console.log(`   ${txIndex + 1}. ${tx.id}`);
         });
       } else if ('paymentTransactionSummaries' in result.data) {
         const summaries = result.data.paymentTransactionSummaries;
         console.log(`📊 Query ${index + 1}: Retrieved ${summaries.items.length} summaries`);
-        summaries.items.slice(0, 2).forEach((summary, summaryIndex) => {
+        summaries.items.slice(0, 2).forEach((summary: any, summaryIndex: number) => {
           console.log(`   ${summaryIndex + 1}. ${summary.transactionActivityDate}: ${summary.transactionCount} transactions`);
         });
       }
@@ -202,7 +202,7 @@ async function requestBatching() {
       console.log(`✅ Batch ${batchNumber} completed in ${batchTime}ms`);
       
       // Process batch results
-      batchResults.forEach((result, batchIndex) => {
+      batchResults.forEach((result: any, batchIndex: number) => {
         const transactions = result.data.paymentTransactions;
         const globalIndex = i + batchIndex + 1;
         console.log(`   Request ${globalIndex}: ${transactions.items.length} transactions`);
@@ -420,8 +420,8 @@ async function performanceComparison() {
       .reduce((sum, r) => sum + ('paymentTransactions' in r.data ? r.data.paymentTransactions.items.length : 0), 0);
       
     const concurrentTransactionCount = concurrentResults
-      .filter(r => 'paymentTransactions' in r.data)
-      .reduce((sum, r) => {
+      .filter((r: any) => 'paymentTransactions' in r.data)
+      .reduce((sum: number, r: any) => {
         const data = r.data as any;
         return sum + data.paymentTransactions.items.length;
       }, 0);

@@ -9,8 +9,7 @@
  * - Token lifecycle monitoring
  */
 
-import { TesouroClient } from '../../src';
-import type { PaymentTransaction, PaymentTransactionSummary } from '../../src/generated/types';
+import { TesouroClient, type PaymentTransaction, type PaymentTransactionSummary } from '@tesouro/tesouro-sdk-for-node';
 
 // Helper function to get yesterday's date for API compatibility
 function getYesterdayDate(): string {
