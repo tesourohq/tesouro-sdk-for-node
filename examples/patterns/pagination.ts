@@ -395,7 +395,7 @@ async function advancedPaginationWithRetry() {
     
     console.log('🚀 Starting resilient pagination with retry logic...');
     
-    async function fetchPageWithRetry(paging: PagingInput): Promise<PaymentTransactionCollection> {
+    const fetchPageWithRetry = async (paging: PagingInput): Promise<PaymentTransactionCollection> => {
       let attempts = 0;
       
       while (attempts <= maxRetries) {
@@ -432,7 +432,7 @@ async function advancedPaginationWithRetry() {
       }
       
       throw new Error('Should not reach here');
-    }
+    };
     
     // Pagination loop with retry logic
     let hasMorePages = true;
@@ -513,7 +513,7 @@ async function testPaginationPatterns() {
 }
 
 // Run if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (require.main === module) {
   testPaginationPatterns();
 }
 
