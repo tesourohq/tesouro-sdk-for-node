@@ -42,6 +42,7 @@ logs/
 
 # Generated code
 src/generated/
+codegen-plugin.js
 
 # Examples and test projects (contain secrets)
 examples/test-project/.env

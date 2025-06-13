@@ -222,14 +222,14 @@ function createErrorTypeInfo(type: GraphQLObjectType, schema: GraphQLSchema): Er
       name: fieldName,
       type: extractResultTypeName(fieldType.toString()),
       required: isRequired,
-      description: field.description,
+      description: field.description || undefined,
     });
   }
 
   return {
     name: type.name,
     baseType,
-    description: type.description,
+    description: type.description || undefined,
     fields: errorFields,
   };
 }
@@ -263,7 +263,7 @@ function createOperationInfo(
     operationString,
     variablesType: hasVariables ? variablesType : 'never',
     resultType,
-    description: field.description,
+    description: field.description || undefined,
     hasVariables,
   };
 }

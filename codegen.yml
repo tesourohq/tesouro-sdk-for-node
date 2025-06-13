@@ -1,7 +1,5 @@
 overwrite: true
 schema: "./schema.graphql"
-require:
-  - "tsx/esm"
 generates:
   src/generated/types.ts:
     plugins:
@@ -77,7 +75,7 @@ generates:
 
   src/generated/client-methods.ts:
     plugins:
-      - "./codegen-plugin.ts"
+      - "./codegen-plugin.js"
     config:
       # Custom plugin configuration
       methodPrefix: ""
