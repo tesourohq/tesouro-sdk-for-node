@@ -46,8 +46,8 @@ export async function simpleAuthorization() {
         cardWithPanDetails: {
           accountNumber: '4100000000000001',
           paymentEntryMode: 'KEYED',
-          expirationMonth: '12',
-          expirationYear: '2025',
+          expirationMonth: 12,
+          expirationYear: 2025,
           securityCode: {
             value: '123'
           }
@@ -103,8 +103,8 @@ export async function authorizationAndCapture() {
         cardWithPanDetails: {
           accountNumber: '4100000000000001',
           paymentEntryMode: 'KEYED',
-          expirationMonth: '12',
-          expirationYear: '2025',
+          expirationMonth: 12,
+          expirationYear: 2025,
           securityCode: {
             value: '123'
           }
@@ -167,7 +167,7 @@ export async function fullPaymentLifecycle() {
     // Step 1: Authorize
     console.log('📋 Step 1: Authorizing payment...');
     
-    const authInput: CustomerInitiatedTransactionAuthorizationInput = {
+    const authInput: AuthorizeCustomerInitiatedTransactionInput = {
       acceptorId: 'f5f5dc3d-bc68-4f43-bcc5-dd8fe88fda76', // Replace with your acceptor ID
       transactionReference: `lifecycle-auth-${Date.now()}`,
       automaticCapture: 'NEVER',
@@ -179,8 +179,8 @@ export async function fullPaymentLifecycle() {
         cardWithPanDetails: {
           accountNumber: '4100000000000001',
           paymentEntryMode: 'KEYED',
-          expirationMonth: '12',
-          expirationYear: '2025',
+          expirationMonth: 12,
+          expirationYear: 2025,
           securityCode: {
             value: '123'
           }
@@ -284,14 +284,14 @@ export async function handleValidationError() {
         cardWithPanDetails: {
           accountNumber: '', // Invalid: empty account number
           paymentEntryMode: 'KEYED',
-          expirationMonth: '12',
-          expirationYear: '2025',
+          expirationMonth: 12,
+          expirationYear: 2025,
           securityCode: {
             value: '123'
           }
         }
       }
-    } as AuthorizeCustomerInitiatedTransactionInput; // Type assertion to bypass TypeScript validation
+    } as unknown as AuthorizeCustomerInitiatedTransactionInput; // Type assertion to bypass TypeScript validation
 
     console.log('💳 Attempting authorization with invalid input...');
     console.log('⚠️  Note: This should fail due to missing acceptorId and empty account number');
