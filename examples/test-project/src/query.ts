@@ -221,7 +221,16 @@ async function testPaymentTransactionsQuery() {
 }
 
 // Run if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Use process.argv check for compatibility with both CommonJS and ESM
+const isMainModule = (() => {
+  try {
+    return process.argv[1] && process.argv[1].endsWith('query.ts');
+  } catch {
+    return false;
+  }
+})();
+
+if (isMainModule) {
   testPaymentTransactionsQuery();
 }
 

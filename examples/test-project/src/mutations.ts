@@ -106,8 +106,8 @@ async function completePaymentLifecycle() {
         cardWithPanDetails: {
           accountNumber: '4100000000000001',
           paymentEntryMode: 'KEYED',
-          expirationMonth: '12',
-          expirationYear: '2025',
+          expirationMonth: 12,
+          expirationYear: 2025,
           securityCode: {
             value: '123'
           }
@@ -245,7 +245,16 @@ async function testMutationExamples() {
 }
 
 // Run if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Use process.argv check for compatibility with both CommonJS and ESM
+const isMainModule = (() => {
+  try {
+    return process.argv[1] && process.argv[1].endsWith('mutations.ts');
+  } catch {
+    return false;
+  }
+})();
+
+if (isMainModule) {
   testMutationExamples();
 }
 

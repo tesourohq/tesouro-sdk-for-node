@@ -499,7 +499,16 @@ export async function runAllTokenRefreshPatterns(): Promise<void> {
 }
 
 // Execute if run directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Use process.argv check for compatibility with both CommonJS and ESM
+const isMainModule = (() => {
+  try {
+    return process.argv[1] && process.argv[1].endsWith('token-refresh.ts');
+  } catch {
+    return false;
+  }
+})();
+
+if (isMainModule) {
   runAllTokenRefreshPatterns()
     .then(() => {
       console.log('\n🎉 All token refresh patterns completed!');

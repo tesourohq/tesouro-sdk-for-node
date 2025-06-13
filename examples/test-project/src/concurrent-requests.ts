@@ -527,8 +527,8 @@ async function resilientConcurrentRequests() {
     console.log(`\n🎯 Resilient requests completed in ${totalTime}ms\n`);
     
     // Analyze results
-    const successful = results.filter(r => r.success);
-    const failed = results.filter(r => !r.success);
+    const successful = results.filter(r => r?.success);
+    const failed = results.filter(r => r && !r.success);
     
     console.log(`📊 Results Summary:`);
     console.log(`   ✅ Successful requests: ${successful.length}/${results.length}`);
@@ -542,7 +542,7 @@ async function resilientConcurrentRequests() {
       console.log(`   ❌ ${result?.name}: Failed after ${result?.attempts} attempts`);
     });
     
-    const totalAttempts = results.reduce((sum, r) => sum + r.attempts, 0);
+    const totalAttempts = results.reduce((sum, r) => sum + (r?.attempts || 0), 0);
     console.log(`   🔄 Total attempts made: ${totalAttempts}`);
     console.log(`   📈 Success rate: ${((successful.length / results.length) * 100).toFixed(1)}%\n`);
     
@@ -585,7 +585,16 @@ async function testConcurrentPatterns() {
 }
 
 // Run if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Use process.argv check for compatibility with both CommonJS and ESM
+const isMainModule = (() => {
+  try {
+    return process.argv[1] && process.argv[1].endsWith('concurrent-requests.ts');
+  } catch {
+    return false;
+  }
+})();
+
+if (isMainModule) {
   testConcurrentPatterns();
 }
 
