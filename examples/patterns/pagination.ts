@@ -75,7 +75,7 @@ async function simpleManualPagination() {
         
         // Process items
         collection.items.forEach((transaction, index) => {
-          console.log(`   ${currentPage * pageSize + index + 1}. Transaction: ${transaction.id || 'N/A'} (${transaction.__typename})`);
+          console.log(`   ${currentPage * pageSize + index + 1}. Transaction: ${transaction.id || 'N/A'}`);
         });
         console.log();
         
@@ -169,7 +169,7 @@ async function autoPaginationWithIterator() {
       console.log(`📖 Page ${pageNumber}: Retrieved ${page.length} transactions`);
       
       page.forEach((transaction, index) => {
-        console.log(`   ${totalItems + index + 1}. Transaction: ${transaction.id || 'N/A'} (${transaction.__typename})`);
+        console.log(`   ${totalItems + index + 1}. Transaction: ${transaction.id || 'N/A'}`);
       });
       
       totalItems += page.length;
@@ -219,7 +219,7 @@ async function streamingPagination() {
     // Stream processor function
     const processTransaction = (transaction: PaymentTransaction, globalIndex: number) => {
       // Simulate processing work
-      console.log(`🔄 Processing transaction ${globalIndex}: ${transaction.id || 'N/A'} (${transaction.__typename})`);
+      console.log(`🔄 Processing transaction ${globalIndex}: ${transaction.id || 'N/A'}`);
       
       // Here you could:
       // - Transform the data
@@ -332,7 +332,7 @@ async function bulkFetchingPattern() {
         await Promise.all(chunk.map(async (transaction, index) => {
           // Simulate async processing work
           await new Promise(resolve => setTimeout(resolve, 10));
-          console.log(`     ✓ Processed: ${transaction.id || `Item ${totalProcessed + i + index + 1}`} (${transaction.__typename})`);
+          console.log(`     ✓ Processed: ${transaction.id || `Item ${totalProcessed + i + index + 1}`}`);
         }));
       }
       
@@ -451,7 +451,7 @@ async function advancedPaginationWithRetry() {
           
           // Process items
           collection.items.forEach((transaction, index) => {
-            console.log(`   ${totalProcessed + index + 1}. ${transaction.id || 'N/A'} (${transaction.__typename})`);
+            console.log(`   ${totalProcessed + index + 1}. ${transaction.id || 'N/A'}`);
           });
           
           totalProcessed += collection.items.length;
