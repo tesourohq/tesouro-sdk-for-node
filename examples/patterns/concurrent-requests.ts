@@ -130,7 +130,7 @@ async function parallelQueryExecution() {
         const transactions = result.data.paymentTransactions;
         console.log(`📄 Query ${index + 1}: Retrieved ${transactions.items.length} transactions`);
         transactions.items.slice(0, 2).forEach((tx, txIndex) => {
-          console.log(`   ${txIndex + 1}. ${tx.id} (${tx.__typename})`);
+          console.log(`   ${txIndex + 1}. ${tx.id}`);
         });
       } else if ('paymentTransactionSummaries' in result.data) {
         const summaries = result.data.paymentTransactionSummaries;
@@ -421,7 +421,10 @@ async function performanceComparison() {
       
     const concurrentTransactionCount = concurrentResults
       .filter(r => 'paymentTransactions' in r.data)
-      .reduce((sum, r) => sum + r.data.paymentTransactions.items.length, 0);
+      .reduce((sum, r) => {
+        const data = r.data as any;
+        return sum + data.paymentTransactions.items.length;
+      }, 0);
     
     console.log(`✅ Data consistency verified: Both approaches returned ${sequentialTransactionCount} transactions\n`);
     
@@ -590,7 +593,7 @@ async function testConcurrentPatterns() {
 }
 
 // Run if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (require.main === module) {
   testConcurrentPatterns();
 }
 
