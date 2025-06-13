@@ -764,8 +764,10 @@ function generateMethodCode(
   methodLines.push(`    const ${operation.type}String = \`${operation.operationString}\`;`);
   methodLines.push(`    `);
   methodLines.push(`    return this.${methodCall}<`);
-  methodLines.push(`      { ${operation.name}: ${operation.resultType} },`);
-  methodLines.push(`      ${operation.hasVariables ? operation.variablesType : 'never'}`);
+  methodLines.push(`      { ${operation.name}: ${operation.resultType} }`);
+  if (operation.hasVariables) {
+    methodLines.push(`      , ${operation.variablesType}`);
+  }
   methodLines.push(`    >(${operation.type}String, ${variablesArg}, options);`);
   methodLines.push(`  }`);
   

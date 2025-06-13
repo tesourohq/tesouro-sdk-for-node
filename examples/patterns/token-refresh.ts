@@ -21,11 +21,10 @@ function getYesterdayDate(): string {
 
 // Basic client setup for all patterns
 const client = new TesouroClient({
-  credentials: {
-    clientId: process.env.TESOURO_CLIENT_ID || 'your-client-id',
-    clientSecret: process.env.TESOURO_CLIENT_SECRET || 'your-client-secret',
-  },
-  tokenEndpoint: process.env.TESOURO_TOKEN_ENDPOINT || 'https://your-token-endpoint/token',
+  clientId: process.env.TESOURO_CLIENT_ID || 'your-client-id',
+  clientSecret: process.env.TESOURO_CLIENT_SECRET || 'your-client-secret',
+  endpoint: 'https://api.sandbox.tesouro.com/graphql',
+  tokenEndpoint: process.env.TESOURO_TOKEN_ENDPOINT || 'https://api.sandbox.tesouro.com/openid/connect/token',
 });
 
 /**
@@ -42,12 +41,14 @@ export async function automaticRefreshPattern(): Promise<void> {
     // The client will automatically refresh tokens when needed
     const startTime = Date.now();
     
-    const result = await client.query.paymentTransactions({
-      first: 5,
-      filter: {
-        activityDate: {
-          gte: getYesterdayDate(),
-          lte: getYesterdayDate(),
+    const result = await client.paymentTransactions({
+      input: {
+        paging: { skip: 0, take: 5 },
+        where: {
+          transactionActivityDate: {
+            gte: getYesterdayDate(),
+            lte: getYesterdayDate(),
+          },
         },
       },
     });
@@ -55,11 +56,12 @@ export async function automaticRefreshPattern(): Promise<void> {
     const endTime = Date.now();
     
     console.log(`✅ Query completed in ${endTime - startTime}ms`);
-    console.log(`📊 Found ${result.edges.length} payment transactions`);
-    console.log(`🔐 Token status: ${client.auth.isTokenValid() ? 'Valid' : 'Invalid'}`);
+    console.log(`📊 Found ${result.data.paymentTransactions.items.length} payment transactions`);
+    console.log(`🔐 Token status: ${client.isAuthenticated() ? 'Valid' : 'Invalid'}`);
     
-    if (client.auth.getTokenExpiration()) {
-      const timeUntilExpiration = client.auth.getTimeUntilExpiration();
+    const authManager = client.getAuthManager();
+    if (authManager.getTokenExpiration()) {
+      const timeUntilExpiration = authManager.getTimeUntilExpiration();
       console.log(`⏰ Token expires in ${Math.round(timeUntilExpiration / 1000 / 60)} minutes`);
     }
     
@@ -80,36 +82,40 @@ export async function manualRefreshPattern(): Promise<void> {
   console.log('==========================================');
 
   try {
+    const authManager = client.getAuthManager();
+    
     // Check current token status
-    console.log(`🔍 Initial token valid: ${client.auth.isTokenValid()}`);
+    console.log(`🔍 Initial token valid: ${client.isAuthenticated()}`);
     
     // Force a token refresh
     console.log('🔄 Forcing token refresh...');
     const refreshStartTime = Date.now();
     
-    const newToken = await client.auth.getValidToken(true); // force refresh
+    await client.refreshToken();
     
     const refreshEndTime = Date.now();
     console.log(`✅ Token refreshed in ${refreshEndTime - refreshStartTime}ms`);
-    console.log(`🔐 New token available: ${newToken ? 'Yes' : 'No'}`);
+    console.log(`🔐 New token available: ${client.isAuthenticated() ? 'Yes' : 'No'}`);
     
-    if (client.auth.getTokenExpiration()) {
-      const expiration = client.auth.getTokenExpiration()!;
+    if (authManager.getTokenExpiration()) {
+      const expiration = authManager.getTokenExpiration()!;
       console.log(`⏰ New token expires at: ${expiration.toLocaleString()}`);
     }
     
     // Now make a request with the fresh token
-    const result = await client.query.paymentTransactionSummaries({
-      first: 3,
-      filter: {
-        activityDate: {
-          gte: getYesterdayDate(),
-          lte: getYesterdayDate(),
+    const result = await client.paymentTransactionSummaries({
+      input: {
+        paging: { skip: 0, take: 3 },
+        where: {
+          transactionActivityDate: {
+            gte: getYesterdayDate(),
+            lte: getYesterdayDate(),
+          },
         },
       },
     });
     
-    console.log(`📊 Query successful with fresh token: ${result.edges.length} summaries`);
+    console.log(`📊 Query successful with fresh token: ${result.data.paymentTransactionSummaries.items.length} summaries`);
     
   } catch (error) {
     console.error('❌ Manual refresh pattern failed:', error);
@@ -129,7 +135,7 @@ export async function concurrentRefreshPattern(): Promise<void> {
 
   try {
     // Clear the token to force refresh on first request
-    client.auth.clearToken();
+    client.clearAccessToken();
     console.log('🧹 Cleared token to simulate refresh scenario');
     
     // Launch multiple concurrent requests that will all need token refresh
@@ -137,25 +143,35 @@ export async function concurrentRefreshPattern(): Promise<void> {
     const startTime = Date.now();
     
     const requests = [
-      client.query.paymentTransactions({
-        first: 2,
-        filter: { activityDate: { gte: getYesterdayDate(), lte: getYesterdayDate() } },
+      client.paymentTransactions({
+        input: {
+          paging: { skip: 0, take: 2 },
+          where: { transactionActivityDate: { gte: getYesterdayDate(), lte: getYesterdayDate() } },
+        },
       }),
-      client.query.paymentTransactionSummaries({
-        first: 2,
-        filter: { activityDate: { gte: getYesterdayDate(), lte: getYesterdayDate() } },
+      client.paymentTransactionSummaries({
+        input: {
+          paging: { skip: 0, take: 2 },
+          where: { transactionActivityDate: { gte: getYesterdayDate(), lte: getYesterdayDate() } },
+        },
       }),
-      client.query.paymentTransactions({
-        first: 1,
-        filter: { activityDate: { gte: getYesterdayDate(), lte: getYesterdayDate() } },
+      client.paymentTransactions({
+        input: {
+          paging: { skip: 0, take: 1 },
+          where: { transactionActivityDate: { gte: getYesterdayDate(), lte: getYesterdayDate() } },
+        },
       }),
-      client.query.paymentTransactionSummaries({
-        first: 1,  
-        filter: { activityDate: { gte: getYesterdayDate(), lte: getYesterdayDate() } },
+      client.paymentTransactionSummaries({
+        input: {
+          paging: { skip: 0, take: 1 },
+          where: { transactionActivityDate: { gte: getYesterdayDate(), lte: getYesterdayDate() } },
+        },
       }),
-      client.query.paymentTransactions({
-        first: 3,
-        filter: { activityDate: { gte: getYesterdayDate(), lte: getYesterdayDate() } },
+      client.paymentTransactions({
+        input: {
+          paging: { skip: 0, take: 3 },
+          where: { transactionActivityDate: { gte: getYesterdayDate(), lte: getYesterdayDate() } },
+        },
       }),
     ];
     
@@ -169,15 +185,16 @@ export async function concurrentRefreshPattern(): Promise<void> {
     
     console.log(`✅ Concurrent requests completed in ${endTime - startTime}ms`);
     console.log(`📊 Results: ${successful} successful, ${failed} failed`);
-    console.log(`🔐 Final token status: ${client.auth.isTokenValid() ? 'Valid' : 'Invalid'}`);
+    console.log(`🔐 Final token status: ${client.isAuthenticated() ? 'Valid' : 'Invalid'}`);
     
     // Show details of any failures
     results.forEach((result, index) => {
       if (result.status === 'rejected') {
         console.log(`❌ Request ${index + 1} failed:`, result.reason.message);
       } else {
-        const data = result.value as { edges: any[] };
-        console.log(`✅ Request ${index + 1}: ${data.edges.length} items`);
+        const data = result.value.data as any;
+        const itemCount = data.paymentTransactions?.items?.length || data.paymentTransactionSummaries?.items?.length || 0;
+        console.log(`✅ Request ${index + 1}: ${itemCount} items`);
       }
     });
     
@@ -199,22 +216,23 @@ export async function errorHandlingPattern(): Promise<void> {
 
   // Create a client with invalid credentials to simulate auth failures
   const testClient = new TesouroClient({
-    credentials: {
-      clientId: 'invalid-client-id',
-      clientSecret: 'invalid-client-secret',
-    },
-    tokenEndpoint: process.env.TESOURO_TOKEN_ENDPOINT || 'https://your-token-endpoint/token',
+    clientId: 'invalid-client-id',
+    clientSecret: 'invalid-client-secret',
+    endpoint: 'https://api.sandbox.tesouro.com/graphql',
+    tokenEndpoint: process.env.TESOURO_TOKEN_ENDPOINT || 'https://api.sandbox.tesouro.com/openid/connect/token',
   });
 
   try {
     console.log('🔄 Attempting request with invalid credentials...');
     
-    const result = await testClient.query.paymentTransactions({
-      first: 1,
-      filter: {
-        activityDate: {
-          gte: getYesterdayDate(),
-          lte: getYesterdayDate(),
+    const result = await testClient.paymentTransactions({
+      input: {
+        paging: { skip: 0, take: 1 },
+        where: {
+          transactionActivityDate: {
+            gte: getYesterdayDate(),
+            lte: getYesterdayDate(),
+          },
         },
       },
     });
@@ -237,17 +255,19 @@ export async function errorHandlingPattern(): Promise<void> {
     // Demonstrate fallback to valid client
     console.log('\n🔄 Falling back to valid client...');
     try {
-      const fallbackResult = await client.query.paymentTransactions({
-        first: 1,
-        filter: {
-          activityDate: {
-            gte: getYesterdayDate(),
-            lte: getYesterdayDate(),
+      const fallbackResult = await client.paymentTransactions({
+        input: {
+          paging: { skip: 0, take: 1 },
+          where: {
+            transactionActivityDate: {
+              gte: getYesterdayDate(),
+              lte: getYesterdayDate(),
+            },
           },
         },
       });
       
-      console.log(`✅ Fallback successful: ${fallbackResult.edges.length} transactions`);
+      console.log(`✅ Fallback successful: ${fallbackResult.data.paymentTransactions.items.length} transactions`);
       
     } catch (fallbackError) {
       console.error('❌ Fallback also failed:', fallbackError);
@@ -266,12 +286,14 @@ export async function lifecycleMonitoringPattern(): Promise<void> {
   console.log('========================================');
 
   try {
+    const authManager = client.getAuthManager();
+    
     // Function to display current token status
     const displayTokenStatus = () => {
-      const isValid = client.auth.isTokenValid();
-      const expiration = client.auth.getTokenExpiration();
-      const timeUntilExpiration = client.auth.getTimeUntilExpiration();
-      const shouldRefresh = client.auth.shouldRefreshToken();
+      const isValid = client.isAuthenticated();
+      const expiration = authManager.getTokenExpiration();
+      const timeUntilExpiration = authManager.getTimeUntilExpiration();
+      const shouldRefresh = authManager.shouldRefreshToken();
       
       console.log(`🔐 Token Valid: ${isValid}`);
       if (expiration) {
@@ -286,7 +308,9 @@ export async function lifecycleMonitoringPattern(): Promise<void> {
     displayTokenStatus();
     
     // Ensure we have a valid token
-    await client.auth.getValidToken();
+    if (!client.isAuthenticated()) {
+      await client.refreshToken();
+    }
     
     console.log('\n📋 After ensuring valid token:');
     displayTokenStatus();
@@ -305,17 +329,19 @@ export async function lifecycleMonitoringPattern(): Promise<void> {
             try {
               console.log(`\n📊 Request ${i + 1} at ${new Date().toLocaleTimeString()}:`);
               
-              const result = await client.query.paymentTransactions({
-                first: 1,
-                filter: {
-                  activityDate: {
-                    gte: getYesterdayDate(),
-                    lte: getYesterdayDate(),
+              const result = await client.paymentTransactions({
+                input: {
+                  paging: { skip: 0, take: 1 },
+                  where: {
+                    transactionActivityDate: {
+                      gte: getYesterdayDate(),
+                      lte: getYesterdayDate(),
+                    },
                   },
                 },
               });
               
-              console.log(`✅ Request ${i + 1} successful: ${result.edges.length} items`);
+              console.log(`✅ Request ${i + 1} successful: ${result.data.paymentTransactions.items.length} items`);
               displayTokenStatus();
               
             } catch (error) {
@@ -349,15 +375,19 @@ export async function proactiveRefreshPattern(): Promise<void> {
   console.log('=============================================');
 
   try {
+    const authManager = client.getAuthManager();
+    
     // Function to check if we should proactively refresh
     const shouldProactivelyRefresh = (): boolean => {
-      const timeUntilExpiration = client.auth.getTimeUntilExpiration();
+      const timeUntilExpiration = authManager.getTimeUntilExpiration();
       // Refresh if less than 10 minutes remaining
       return timeUntilExpiration < (10 * 60 * 1000);
     };
 
     // Ensure we have a token first
-    await client.auth.getValidToken();
+    if (!client.isAuthenticated()) {
+      await client.refreshToken();
+    }
     
     console.log('🔍 Checking if proactive refresh is needed...');
     
@@ -365,7 +395,7 @@ export async function proactiveRefreshPattern(): Promise<void> {
       console.log('🔄 Proactively refreshing token...');
       const refreshStart = Date.now();
       
-      await client.auth.getValidToken(true); // Force refresh
+      await client.refreshToken();
       
       const refreshEnd = Date.now();
       console.log(`✅ Proactive refresh completed in ${refreshEnd - refreshStart}ms`);
@@ -378,13 +408,17 @@ export async function proactiveRefreshPattern(): Promise<void> {
     const batchStart = Date.now();
     
     const batchRequests = [
-      client.query.paymentTransactions({
-        first: 2,
-        filter: { activityDate: { gte: getYesterdayDate(), lte: getYesterdayDate() } },
+      client.paymentTransactions({
+        input: {
+          paging: { skip: 0, take: 2 },
+          where: { transactionActivityDate: { gte: getYesterdayDate(), lte: getYesterdayDate() } },
+        },
       }),
-      client.query.paymentTransactionSummaries({
-        first: 2,
-        filter: { activityDate: { gte: getYesterdayDate(), lte: getYesterdayDate() } },
+      client.paymentTransactionSummaries({
+        input: {
+          paging: { skip: 0, take: 2 },
+          where: { transactionActivityDate: { gte: getYesterdayDate(), lte: getYesterdayDate() } },
+        },
       }),
     ];
     
@@ -397,7 +431,7 @@ export async function proactiveRefreshPattern(): Promise<void> {
     console.log(`📊 Batch results: ${batchSuccessful}/${batchRequests.length} successful`);
     
     // Display final token status
-    const finalExpiration = client.auth.getTimeUntilExpiration();
+    const finalExpiration = authManager.getTimeUntilExpiration();
     console.log(`⏰ Token remaining time: ${Math.round(finalExpiration / 1000 / 60)} minutes`);
     
   } catch (error) {
