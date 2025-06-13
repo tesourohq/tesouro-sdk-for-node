@@ -9,6 +9,7 @@ import {
   TesouroClient, 
   type MutationAuthorizeCustomerInitiatedTransactionArgs,
   type AuthorizeCustomerInitiatedTransactionInput,
+  type TransactionAmountCurrencyCode,
   type GraphQLResult,
   GraphQLError,
   NetworkError,
@@ -28,7 +29,7 @@ function setupClient(): TesouroClient {
 // Example 1: Basic mutation with error handling
 export async function authorizePaymentWithErrorHandling(
   amount: number,
-  currency: string,
+  currency: TransactionAmountCurrencyCode,
   cardNumber: string,
   merchantReference: string
 ) {
@@ -130,7 +131,7 @@ export async function authorizePaymentWithErrorHandling(
 // Example 2: Mutation with validation
 export async function authorizePaymentWithValidation(
   amount: number,
-  currency: string,
+  currency: TransactionAmountCurrencyCode,
   cardNumber: string,
   merchantReference: string
 ) {
@@ -173,7 +174,7 @@ export async function authorizePaymentWithValidation(
 // Example 3: Mutation with detailed response handling
 export async function authorizePaymentWithDetailedResponse(
   amount: number,
-  currency: string,
+  currency: TransactionAmountCurrencyCode,
   cardNumber: string,
   merchantReference: string
 ) {
@@ -219,7 +220,7 @@ export async function authorizePaymentWithDetailedResponse(
 export async function authorizeMultiplePayments(
   payments: Array<{
     amount: number;
-    currency: string;
+    currency: TransactionAmountCurrencyCode;
     cardNumber: string;
     merchantReference: string;
   }>
@@ -292,7 +293,7 @@ export async function runMutationExamples() {
   // Example payment data
   const testPayment = {
     amount: 100.50,
-    currency: 'USD',
+    currency: 'USD' as TransactionAmountCurrencyCode,
     cardNumber: '4100000000000001',
     merchantReference: `test-payment-${Date.now()}`
   };
