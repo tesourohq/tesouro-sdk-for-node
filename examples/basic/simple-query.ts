@@ -65,8 +65,8 @@ export async function getRecentPaymentTransactions() {
       console.log('Transactions:', JSON.stringify(transactions.items, null, 2));
       console.log('Has next page:', transactions.pageInfo.hasNextPage);
       return transactions;
-    } else if (result.errors) {
-      console.error('GraphQL errors:', result.errors);
+    } else {
+      console.error('No data returned from query');
       return null;
     }
 
@@ -120,15 +120,15 @@ export async function getFilteredPaymentTransactions() {
       // Log some details about each transaction
       transactions.items.forEach(transaction => {
         console.log(`Transaction ${transaction.id}:`);
-        console.log(`  Amount: ${transaction.amount} ${transaction.currency}`);
+        console.log(`  Response: ${transaction.processorResponseMessage}`);
         console.log(`  Type: ${transaction.transactionType}`);
-        console.log(`  Status: ${transaction.conveyedStatus}`);
+        console.log(`  Response Type: ${transaction.responseType || 'N/A'}`);
         console.log(`  Date: ${transaction.transactionDateTime}`);
       });
 
       return transactions;
-    } else if (result.errors) {
-      console.error('GraphQL errors:', result.errors);
+    } else {
+      console.error('No data returned from query');
       return null;
     }
 
@@ -256,26 +256,8 @@ export async function queryWithProperErrorHandling() {
 
     const result = await client.paymentTransactions(variables);
 
-    // Check for GraphQL errors
-    if (result.errors && result.errors.length > 0) {
-      console.error('GraphQL errors occurred:');
-      
-      result.errors.forEach((error, index) => {
-        console.error(`Error ${index + 1}:`);
-        console.error(`  Message: ${error.message}`);
-        console.error(`  Path: ${error.path?.join(' -> ')}`);
-        
-        if (error.extensions) {
-          console.error(`  Code: ${error.extensions.code}`);
-          console.error(`  Details:`, error.extensions);
-        }
-      });
-
-      // Even with errors, we might have partial data
-      if (result.data) {
-        console.log('Partial data available despite errors');
-      }
-    }
+    // Note: GraphQL errors are handled by the SDK and thrown as exceptions
+    // If we reach this point, the query was successful
 
     // Process successful data
     if (result.data?.paymentTransactions) {

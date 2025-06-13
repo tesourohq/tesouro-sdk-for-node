@@ -85,7 +85,16 @@ async function testAuthentication() {
 }
 
 // Execute if run directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Use process.argv check for compatibility with both CommonJS and ESM
+const isMainModule = (() => {
+  try {
+    return process.argv[1] && process.argv[1].endsWith('auth.ts');
+  } catch {
+    return false;
+  }
+})();
+
+if (isMainModule) {
   testAuthentication();
 }
 

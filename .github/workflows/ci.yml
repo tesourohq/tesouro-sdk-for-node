@@ -1,0 +1,453 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  NODE_ENV: test
+
+jobs:
+  lint-and-format:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Check Prettier formatting
+        run: npm run format:check
+
+      - name: Run GraphQL code generation
+        run: npm run codegen
+
+      - name: TypeScript type check
+        run: npx tsc --noEmit --project tsconfig.types.json
+
+  test:
+    name: Test (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: ['18.x', '20.x']
+      fail-fast: false
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run GraphQL code generation
+        run: npm run codegen
+
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        if: matrix.node-version == '18.x'
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+  build-validation:
+    name: Build Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run GraphQL code generation
+        run: npm run codegen
+
+      - name: Build all targets
+        run: npm run build
+
+      - name: Verify package can be created
+        run: npm pack
+
+      - name: Test package installation
+        run: |
+          mkdir test-install
+          cd test-install
+          npm init -y
+          npm install ../tesouro-tesouro-sdk-for-node-*.tgz
+          node -e "
+            const sdk = require('@tesouro/tesouro-sdk-for-node');
+            console.log('✅ CommonJS import works');
+            console.log('Exports:', Object.keys(sdk));
+            if (!sdk.TesouroClient) throw new Error('TesouroClient not exported');
+            if (!sdk.ApiClient) throw new Error('ApiClient not exported');
+            console.log('SDK loaded successfully');
+          "
+
+      - name: Test ES module import
+        run: |
+          cd test-install
+          echo '{"type": "module"}' > package.json
+          node -e "
+            import('@tesouro/tesouro-sdk-for-node').then(sdk => {
+              console.log('✅ ES module import works');
+              console.log('Exports:', Object.keys(sdk));
+              if (!sdk.TesouroClient) throw new Error('TesouroClient not exported');
+              if (!sdk.ApiClient) throw new Error('ApiClient not exported');
+              console.log('SDK loaded successfully');
+            }).catch(err => {
+              console.error('❌ ES module import failed:', err);
+              process.exit(1);
+            });
+          "
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-files
+          path: dist/
+          retention-days: 7
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+
+      - name: Check for known vulnerabilities in dependencies
+        run: |
+          # Allow the job to continue even if vulnerabilities are found
+          npm audit --audit-level=high || echo "::warning::High severity vulnerabilities found"
+
+  schema-validation:
+    name: GraphQL Schema Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate GraphQL schema
+        run: node validate-schema.js
+
+      - name: Verify code generation works
+        run: |
+          # Clean any existing generated files
+          rm -rf src/generated/*
+          # Run code generation
+          npm run codegen
+          # Verify files were generated
+          if [ ! -f "src/generated/types.ts" ]; then
+            echo "❌ types.ts was not generated"
+            exit 1
+          fi
+          if [ ! -f "src/generated/client-methods.ts" ]; then
+            echo "❌ client-methods.ts was not generated"
+            exit 1
+          fi
+          echo "✅ Code generation successful"
+
+  example-project-integration:
+    name: Example Project Integration
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: Install main package dependencies
+        run: npm ci
+
+      - name: Build and package main SDK
+        run: |
+          npm run build
+          npm pack
+          SDK_PACKAGE=$(ls tesouro-tesouro-sdk-for-node-*.tgz)
+          echo "SDK_PACKAGE=$SDK_PACKAGE" >> $GITHUB_ENV
+
+      - name: Test example project setup and compilation
+        run: |
+          echo "🧪 Testing example test project..."
+          cd examples/test-project
+          
+          # Install dependencies
+          npm ci
+          
+          # Install the locally built SDK package
+          npm install "../../$SDK_PACKAGE"
+          
+          # Verify the package is correctly installed
+          node -e "
+            const sdk = require('@tesouro/tesouro-sdk-for-node');
+            if (!sdk.TesouroClient) throw new Error('TesouroClient not found in installed package');
+            console.log('✅ SDK package correctly installed in example project');
+          "
+
+      - name: Test example project TypeScript compilation
+        run: |
+          cd examples/test-project
+          
+          echo "🔨 Testing TypeScript compilation..."
+          npx tsc --noEmit
+          
+          echo "✅ Example project TypeScript compilation successful"
+
+      - name: Validate example environment setup
+        run: |
+          cd examples/test-project
+          
+          echo "📋 Validating example environment..."
+          
+          # Check if required files exist
+          if [ ! -f "src/setup.ts" ]; then
+            echo "❌ Missing setup.ts example"
+            exit 1
+          fi
+          
+          if [ ! -f "src/auth.ts" ]; then
+            echo "❌ Missing auth.ts example"
+            exit 1
+          fi
+          
+          if [ ! -f "src/query.ts" ]; then
+            echo "❌ Missing query.ts example"
+            exit 1
+          fi
+          
+          if [ ! -f "src/mutations.ts" ]; then
+            echo "❌ Missing mutations.ts example"
+            exit 1
+          fi
+          
+          echo "✅ All required example files present"
+
+      - name: Test example imports and basic syntax
+        run: |
+          cd examples/test-project
+          
+          echo "🔗 Testing example imports and TypeScript compilation..."
+          
+          # Test that each example file can be imported and compiled without errors
+          for example_file in src/*.ts; do
+            if [ -f "$example_file" ]; then
+              echo "Testing TypeScript compilation for: $example_file"
+              # Test TypeScript compilation only (no runtime execution)
+              npx tsc --noEmit --skipLibCheck "$example_file"
+            fi
+          done
+
+  standalone-example-compilation:
+    name: Standalone Example Compilation
+    runs-on: ubuntu-latest
+    needs: build-validation
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: Install main package dependencies
+        run: npm ci
+
+      - name: Build and package main SDK
+        run: |
+          npm run build
+          npm pack
+          SDK_PACKAGE=$(ls tesouro-tesouro-sdk-for-node-*.tgz)
+          echo "SDK_PACKAGE=$SDK_PACKAGE" >> $GITHUB_ENV
+
+      - name: Test basic examples TypeScript compilation
+        run: |
+          echo "🔍 Testing basic example TypeScript compilation..."
+          
+          # Create a temporary test environment for basic examples
+          mkdir -p temp-examples-test
+          cd temp-examples-test
+          
+          # Initialize a temporary package.json
+          npm init -y
+          
+          # Install the locally built SDK package
+          npm install "../$SDK_PACKAGE"
+          
+          # Copy examples to test directory and test compilation
+          for example_dir in basic advanced patterns; do
+            if [ -d "../examples/$example_dir" ]; then
+              mkdir -p "$example_dir"
+              cp -r ../examples/$example_dir/* "$example_dir"/ 2>/dev/null || true
+              
+              # Test each TypeScript file in the directory
+              for example_file in "$example_dir"/*.ts; do
+                if [ -f "$example_file" ]; then
+                  echo "Checking TypeScript compilation for: $example_file"
+                  npx tsc --noEmit --skipLibCheck --esModuleInterop --moduleResolution node "$example_file"
+                fi
+              done
+            fi
+          done
+          
+          cd ..
+          rm -rf temp-examples-test
+
+      - name: Test example patterns compilation
+        run: |
+          echo "🎯 Testing pattern examples..."
+          
+          # Create a temporary test environment for pattern examples
+          mkdir -p temp-patterns-test
+          cd temp-patterns-test
+          
+          # Initialize a temporary package.json
+          npm init -y
+          
+          # Install the locally built SDK package
+          npm install "../$SDK_PACKAGE"
+          
+          # Copy pattern examples - they should exist
+          if [ -d "../examples/patterns" ]; then
+            cp -r ../examples/patterns/* ./ 2>/dev/null || true
+            
+            # Test each pattern file individually
+            for pattern_file in *.ts; do
+              if [ -f "$pattern_file" ]; then
+                echo "Testing pattern: $pattern_file"
+                # Compile with stricter settings to catch issues
+                npx tsc --noEmit --strict --esModuleInterop --moduleResolution node "$pattern_file"
+              fi
+            done
+          else
+            echo "❌ Expected patterns directory not found at examples/patterns"
+            exit 1
+          fi
+          
+          cd ..
+          rm -rf temp-patterns-test
+
+      - name: Generate examples test report
+        run: |
+          echo "📊 **Standalone Examples Test Summary**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Basic Examples**: TypeScript compilation successful" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Pattern Examples**: All patterns compile successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Example Files Tested:**" >> $GITHUB_STEP_SUMMARY
+          find examples/ -name "*.ts" -not -path "examples/test-project/*" | while read file; do
+            echo "- \`$file\`" >> $GITHUB_STEP_SUMMARY
+          done
+
+  # Summary job that depends on all others
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    needs: 
+      - lint-and-format
+      - test
+      - build-validation
+      - security-audit
+      - schema-validation
+      - example-project-integration
+      - standalone-example-compilation
+    if: always()
+    
+    steps:
+      - name: Check all jobs
+        run: |
+          # Check if any required job failed
+          if [[ "${{ needs.lint-and-format.result }}" != "success" ]]; then
+            echo "❌ Lint and format check failed"
+            exit 1
+          fi
+          if [[ "${{ needs.test.result }}" != "success" ]]; then
+            echo "❌ Tests failed"
+            exit 1
+          fi
+          if [[ "${{ needs.build-validation.result }}" != "success" ]]; then
+            echo "❌ Build validation failed"
+            exit 1
+          fi
+          if [[ "${{ needs.schema-validation.result }}" != "success" ]]; then
+            echo "❌ Schema validation failed"
+            exit 1
+          fi
+          if [[ "${{ needs.example-project-integration.result }}" != "success" ]]; then
+            echo "❌ Example project integration failed"
+            exit 1
+          fi
+          if [[ "${{ needs.standalone-example-compilation.result }}" != "success" ]]; then
+            echo "❌ Standalone example compilation failed"
+            exit 1
+          fi
+          
+          # Security audit is allowed to have warnings
+          if [[ "${{ needs.security-audit.result }}" == "failure" ]]; then
+            echo "⚠️ Security audit had issues, but not blocking CI"
+          fi
+          
+          echo "✅ All CI checks passed!"

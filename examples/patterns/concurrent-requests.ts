@@ -125,17 +125,17 @@ async function parallelQueryExecution() {
     console.log(`✅ All ${results.length} queries completed in ${totalTime}ms\n`);
     
     // Process results
-    results.forEach((result, index) => {
+    results.forEach((result: any, index: number) => {
       if ('paymentTransactions' in result.data) {
         const transactions = result.data.paymentTransactions;
         console.log(`📄 Query ${index + 1}: Retrieved ${transactions.items.length} transactions`);
-        transactions.items.slice(0, 2).forEach((tx, txIndex) => {
-          console.log(`   ${txIndex + 1}. ${tx.id} (${tx.__typename})`);
+        transactions.items.slice(0, 2).forEach((tx: any, txIndex: number) => {
+          console.log(`   ${txIndex + 1}. ${tx.id}`);
         });
       } else if ('paymentTransactionSummaries' in result.data) {
         const summaries = result.data.paymentTransactionSummaries;
         console.log(`📊 Query ${index + 1}: Retrieved ${summaries.items.length} summaries`);
-        summaries.items.slice(0, 2).forEach((summary, summaryIndex) => {
+        summaries.items.slice(0, 2).forEach((summary: any, summaryIndex: number) => {
           console.log(`   ${summaryIndex + 1}. ${summary.transactionActivityDate}: ${summary.transactionCount} transactions`);
         });
       }
@@ -202,7 +202,7 @@ async function requestBatching() {
       console.log(`✅ Batch ${batchNumber} completed in ${batchTime}ms`);
       
       // Process batch results
-      batchResults.forEach((result, batchIndex) => {
+      batchResults.forEach((result: any, batchIndex: number) => {
         const transactions = result.data.paymentTransactions;
         const globalIndex = i + batchIndex + 1;
         console.log(`   Request ${globalIndex}: ${transactions.items.length} transactions`);
@@ -376,7 +376,7 @@ async function performanceComparison() {
         input: { paging: { skip: 3, take: 3 }, where }
       }),
       () => client.paymentTransactionSummaries({
-        input: { paging: { skip: 0, take: 5 }, where: { transactionActivityDate: where.transactionActivityDate } }
+        input: { paging: { skip: 0, take: 5 }, where: where as any }
       })
     ];
 
@@ -417,11 +417,14 @@ async function performanceComparison() {
     console.log('🔍 Verifying data consistency...');
     const sequentialTransactionCount = sequentialResults
       .filter(r => 'paymentTransactions' in r.data)
-      .reduce((sum, r) => sum + r.data.paymentTransactions.items.length, 0);
+      .reduce((sum, r) => sum + ('paymentTransactions' in r.data ? r.data.paymentTransactions.items.length : 0), 0);
       
     const concurrentTransactionCount = concurrentResults
-      .filter(r => 'paymentTransactions' in r.data)
-      .reduce((sum, r) => sum + r.data.paymentTransactions.items.length, 0);
+      .filter((r: any) => 'paymentTransactions' in r.data)
+      .reduce((sum: number, r: any) => {
+        const data = r.data as any;
+        return sum + data.paymentTransactions.items.length;
+      }, 0);
     
     console.log(`✅ Data consistency verified: Both approaches returned ${sequentialTransactionCount} transactions\n`);
     
@@ -532,22 +535,22 @@ async function resilientConcurrentRequests() {
     console.log(`\n🎯 Resilient requests completed in ${totalTime}ms\n`);
     
     // Analyze results
-    const successful = results.filter(r => r.success);
-    const failed = results.filter(r => !r.success);
+    const successful = results.filter(r => r && r.success);
+    const failed = results.filter(r => r && !r.success);
     
     console.log(`📊 Results Summary:`);
     console.log(`   ✅ Successful requests: ${successful.length}/${results.length}`);
     console.log(`   ❌ Failed requests: ${failed.length}/${results.length}`);
     
     successful.forEach(result => {
-      console.log(`   ✅ ${result.name}: Success after ${result.attempts} attempt(s)`);
+      console.log(`   ✅ ${result?.name}: Success after ${result?.attempts} attempt(s)`);
     });
     
     failed.forEach(result => {
-      console.log(`   ❌ ${result.name}: Failed after ${result.attempts} attempts`);
+      console.log(`   ❌ ${result?.name}: Failed after ${result?.attempts} attempts`);
     });
     
-    const totalAttempts = results.reduce((sum, r) => sum + r.attempts, 0);
+    const totalAttempts = results.reduce((sum, r) => sum + (r?.attempts || 0), 0);
     console.log(`   🔄 Total attempts made: ${totalAttempts}`);
     console.log(`   📈 Success rate: ${((successful.length / results.length) * 100).toFixed(1)}%\n`);
     
@@ -590,7 +593,7 @@ async function testConcurrentPatterns() {
 }
 
 // Run if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (require.main === module) {
   testConcurrentPatterns();
 }
 

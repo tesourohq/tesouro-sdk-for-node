@@ -88,7 +88,7 @@ if (authResponse) {
 ## Documentation
 
 - **[Quick Start Guide](docs/QUICKSTART.md)** - Get up and running in minutes
-- **[API Reference](docs/api/)** - Complete API documentation
+- **[API Reference](https://docs.tesouro.com)** - Complete API documentation
 - **[Examples](examples/)** - Working code examples for common use cases
 - **[Test Project](examples/test-project/)** - Runnable examples and testing patterns
 
@@ -114,9 +114,9 @@ The SDK includes comprehensive examples for common use cases:
 ```bash
 cd examples/test-project
 npm install
-cp .env.example .env  # Add your credentials
-npm run test:query    # Test query operations
-npm run test:auth     # Test authentication
+cp .env.example .env   # Add your credentials
+npm run test:query     # Test query operations
+npm run test:auth      # Test authentication
 npm run test:mutations # Test payment operations
 ```
 
@@ -239,8 +239,8 @@ const authManager = new AuthManager(authConfig);
 
 ### Prerequisites
 
-- Node.js 16+ 
-- npm 7+
+- Node.js 18+ 
+- npm 8+
 - TypeScript 4.8+
 
 ### Setup
@@ -254,13 +254,13 @@ npm install
 ### Scripts
 
 ```bash
-npm run build          # Build the project
-npm run test           # Run all tests
-npm run test:unit      # Run unit tests only
+npm run build            # Build the project
+npm run test             # Run all tests
+npm run test:unit        # Run unit tests only
 npm run test:integration # Run integration tests
-npm run lint           # Lint code
-npm run typecheck      # Type checking
-npm run docs           # Generate documentation
+npm run lint             # Lint code
+npm run typecheck        # Type checking
+npm run docs             # Generate documentation
 ```
 
 ### Testing
@@ -272,7 +272,7 @@ The SDK includes comprehensive test suites:
 - **Example Tests** - Verification that all examples work correctly
 
 ```bash
-npm test                    # All tests
+npm test                   # All tests
 npm run test:unit          # Unit tests only
 npm run test:integration   # Integration tests only
 ```

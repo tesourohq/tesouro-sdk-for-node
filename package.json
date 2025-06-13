@@ -15,9 +15,10 @@
   "scripts": {
     "build": "npm run codegen && npm run build:cjs && npm run build:esm && npm run build:types",
     "build:cjs": "tsc -p tsconfig.cjs.json",
-    "build:esm": "tsc -p tsconfig.esm.json && echo '{\"type\":\"module\"}' > dist/esm/package.json",
+    "build:esm": "tsc -p tsconfig.esm.json && node scripts/fix-esm-imports.js && echo '{\"type\":\"module\"}' > dist/esm/package.json",
     "build:types": "tsc -p tsconfig.types.json",
-    "codegen": "graphql-codegen --config codegen.yml && eslint src/generated/ --fix",
+    "codegen": "npm run codegen:compile-plugin && graphql-codegen --config codegen.yml && eslint src/generated/ --fix",
+    "codegen:compile-plugin": "npx tsc codegen-plugin.ts --target es2020 --module commonjs --moduleResolution node --strict --esModuleInterop --skipLibCheck",
     "codegen:watch": "graphql-codegen --config codegen.yml --watch",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -39,7 +40,7 @@
     "release:major": "npm version major && npm publish"
   },
   "engines": {
-    "node": ">=16.0.0",
+    "node": ">=18.0.0",
     "npm": ">=8.0.0"
   },
   "os": [
@@ -92,6 +93,7 @@
     "msw": "^2.10.1",
     "prettier": "^3.5.3",
     "ts-jest": "^29.3.4",
+    "tsx": "^4.20.3",
     "typescript": "^5.0.0"
   },
   "files": [

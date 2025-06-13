@@ -3,7 +3,6 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
 yarn.lock
 
 # Build outputs
@@ -43,6 +42,7 @@ logs/
 
 # Generated code
 src/generated/
+codegen-plugin.js
 
 # Examples and test projects (contain secrets)
 examples/test-project/.env

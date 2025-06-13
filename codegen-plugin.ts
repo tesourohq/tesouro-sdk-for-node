@@ -222,14 +222,14 @@ function createErrorTypeInfo(type: GraphQLObjectType, schema: GraphQLSchema): Er
       name: fieldName,
       type: extractResultTypeName(fieldType.toString()),
       required: isRequired,
-      description: field.description,
+      description: field.description || undefined,
     });
   }
 
   return {
     name: type.name,
     baseType,
-    description: type.description,
+    description: type.description || undefined,
     fields: errorFields,
   };
 }
@@ -263,7 +263,7 @@ function createOperationInfo(
     operationString,
     variablesType: hasVariables ? variablesType : 'never',
     resultType,
-    description: field.description,
+    description: field.description || undefined,
     hasVariables,
   };
 }
@@ -763,10 +763,14 @@ function generateMethodCode(
   methodLines.push(`  async ${methodName}(${params}): Promise<GraphQLResult<{ ${operation.name}: ${operation.resultType} }>> {`);
   methodLines.push(`    const ${operation.type}String = \`${operation.operationString}\`;`);
   methodLines.push(`    `);
-  methodLines.push(`    return this.${methodCall}<`);
-  methodLines.push(`      { ${operation.name}: ${operation.resultType} },`);
-  methodLines.push(`      ${operation.hasVariables ? operation.variablesType : 'never'}`);
-  methodLines.push(`    >(${operation.type}String, ${variablesArg}, options);`);
+  if (operation.hasVariables) {
+    methodLines.push(`    return this.${methodCall}<`);
+    methodLines.push(`      { ${operation.name}: ${operation.resultType} },`);
+    methodLines.push(`      ${operation.variablesType}`);
+    methodLines.push(`    >(${operation.type}String, ${variablesArg}, options);`);
+  } else {
+    methodLines.push(`    return this.${methodCall}<{ ${operation.name}: ${operation.resultType} }>(${operation.type}String, {}, options);`);
+  }
   methodLines.push(`  }`);
   
   const methodSignatureAndBody = methodLines.join('\n');

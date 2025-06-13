@@ -83,11 +83,3 @@ export { ApiClient, createClient, type ApiClientConfig, type ClientRequestOption
  */
 export { TesouroClient } from './generated/client-methods';
 export type * from './generated/types';
-
-/**
- * Simple hello world function for initial setup verification
- * @returns A greeting message
- */
-export function hello(): string {
-  return 'Hello from Tesouro SDK!';
-}
