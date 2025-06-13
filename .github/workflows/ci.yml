@@ -203,8 +203,8 @@ jobs:
           fi
           echo "✅ Code generation successful"
 
-  examples-validation:
-    name: Examples Validation
+  example-project-integration:
+    name: Example Project Integration
     runs-on: ubuntu-latest
     
     steps:
@@ -220,19 +220,192 @@ jobs:
       - name: Install main package dependencies
         run: npm ci
 
-      - name: Build main package
-        run: npm run build
-
-      - name: Test example project setup
+      - name: Build and package main SDK
         run: |
+          npm run build
+          npm pack
+          SDK_PACKAGE=$(ls tesouro-tesouro-sdk-for-node-*.tgz)
+          echo "SDK_PACKAGE=$SDK_PACKAGE" >> $GITHUB_ENV
+
+      - name: Test example project setup and compilation
+        run: |
+          echo "🧪 Testing example test project..."
           cd examples/test-project
+          
+          # Install dependencies
           npm ci
           
-          # Verify the example project can import the SDK
-          npm run build 2>/dev/null || echo "Example build completed (warnings expected)"
+          # Install the locally built SDK package
+          npm install "../../$SDK_PACKAGE"
           
-          # Basic syntax/import validation
-          npx tsc --noEmit --skipLibCheck src/*.ts
+          # Verify the package is correctly installed
+          node -e "
+            const sdk = require('@tesouro/tesouro-sdk-for-node');
+            if (!sdk.TesouroClient) throw new Error('TesouroClient not found in installed package');
+            console.log('✅ SDK package correctly installed in example project');
+          "
+
+      - name: Test example project TypeScript compilation
+        run: |
+          cd examples/test-project
+          
+          echo "🔨 Testing TypeScript compilation..."
+          npx tsc --noEmit
+          
+          echo "✅ Example project TypeScript compilation successful"
+
+      - name: Validate example environment setup
+        run: |
+          cd examples/test-project
+          
+          echo "📋 Validating example environment..."
+          
+          # Check if required files exist
+          if [ ! -f "src/setup.ts" ]; then
+            echo "❌ Missing setup.ts example"
+            exit 1
+          fi
+          
+          if [ ! -f "src/auth.ts" ]; then
+            echo "❌ Missing auth.ts example"
+            exit 1
+          fi
+          
+          if [ ! -f "src/query.ts" ]; then
+            echo "❌ Missing query.ts example"
+            exit 1
+          fi
+          
+          if [ ! -f "src/mutations.ts" ]; then
+            echo "❌ Missing mutations.ts example"
+            exit 1
+          fi
+          
+          echo "✅ All required example files present"
+
+      - name: Test example imports and basic syntax
+        run: |
+          cd examples/test-project
+          
+          echo "🔗 Testing example imports..."
+          
+          # Test that each example file can be imported without errors
+          for example_file in src/*.ts; do
+            if [ -f "$example_file" ]; then
+              echo "Testing imports in: $example_file"
+              # Create a test file that imports the example
+              cat > test_import.ts << EOF
+          import './${example_file#src/}';
+          console.log('✅ Import successful for ${example_file}');
+          EOF
+              npx ts-node --transpile-only test_import.ts
+              rm test_import.ts
+            fi
+          done
+
+  standalone-example-compilation:
+    name: Standalone Example Compilation
+    runs-on: ubuntu-latest
+    needs: build-validation
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: Install main package dependencies
+        run: npm ci
+
+      - name: Build and package main SDK
+        run: |
+          npm run build
+          npm pack
+          SDK_PACKAGE=$(ls tesouro-tesouro-sdk-for-node-*.tgz)
+          echo "SDK_PACKAGE=$SDK_PACKAGE" >> $GITHUB_ENV
+
+      - name: Test basic examples TypeScript compilation
+        run: |
+          echo "🔍 Testing basic example TypeScript compilation..."
+          
+          # Create a temporary test environment for basic examples
+          mkdir -p temp-examples-test
+          cd temp-examples-test
+          
+          # Initialize a temporary package.json
+          npm init -y
+          
+          # Install the locally built SDK package
+          npm install "../$SDK_PACKAGE"
+          
+          # Copy examples to test directory and test compilation
+          for example_dir in basic advanced patterns; do
+            if [ -d "../examples/$example_dir" ]; then
+              mkdir -p "$example_dir"
+              cp -r ../examples/$example_dir/* "$example_dir"/ 2>/dev/null || true
+              
+              # Test each TypeScript file in the directory
+              for example_file in "$example_dir"/*.ts; do
+                if [ -f "$example_file" ]; then
+                  echo "Checking TypeScript compilation for: $example_file"
+                  npx tsc --noEmit --skipLibCheck --esModuleInterop --moduleResolution node "$example_file"
+                fi
+              done
+            fi
+          done
+          
+          cd ..
+          rm -rf temp-examples-test
+
+      - name: Test example patterns compilation
+        run: |
+          echo "🎯 Testing pattern examples..."
+          
+          # Create a temporary test environment for pattern examples
+          mkdir -p temp-patterns-test
+          cd temp-patterns-test
+          
+          # Initialize a temporary package.json
+          npm init -y
+          
+          # Install the locally built SDK package
+          npm install "../$SDK_PACKAGE"
+          
+          # Copy pattern examples - they should exist
+          if [ -d "../examples/patterns" ]; then
+            cp -r ../examples/patterns/* ./ 2>/dev/null || true
+            
+            # Test each pattern file individually
+            for pattern_file in *.ts; do
+              if [ -f "$pattern_file" ]; then
+                echo "Testing pattern: $pattern_file"
+                # Compile with stricter settings to catch issues
+                npx tsc --noEmit --strict --esModuleInterop --moduleResolution node "$pattern_file"
+              fi
+            done
+          else
+            echo "❌ Expected patterns directory not found at examples/patterns"
+            exit 1
+          fi
+          
+          cd ..
+          rm -rf temp-patterns-test
+
+      - name: Generate examples test report
+        run: |
+          echo "📊 **Standalone Examples Test Summary**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Basic Examples**: TypeScript compilation successful" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Pattern Examples**: All patterns compile successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Example Files Tested:**" >> $GITHUB_STEP_SUMMARY
+          find examples/ -name "*.ts" -not -path "examples/test-project/*" | while read file; do
+            echo "- \`$file\`" >> $GITHUB_STEP_SUMMARY
+          done
 
   # Summary job that depends on all others
   ci-success:
@@ -244,7 +417,8 @@ jobs:
       - build-validation
       - security-audit
       - schema-validation
-      - examples-validation
+      - example-project-integration
+      - standalone-example-compilation
     if: always()
     
     steps:
@@ -267,8 +441,12 @@ jobs:
             echo "❌ Schema validation failed"
             exit 1
           fi
-          if [[ "${{ needs.examples-validation.result }}" != "success" ]]; then
-            echo "❌ Examples validation failed"
+          if [[ "${{ needs.example-project-integration.result }}" != "success" ]]; then
+            echo "❌ Example project integration failed"
+            exit 1
+          fi
+          if [[ "${{ needs.standalone-example-compilation.result }}" != "success" ]]; then
+            echo "❌ Standalone example compilation failed"
             exit 1
           fi
           
