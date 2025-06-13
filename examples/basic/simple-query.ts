@@ -120,9 +120,9 @@ export async function getFilteredPaymentTransactions() {
       // Log some details about each transaction
       transactions.items.forEach(transaction => {
         console.log(`Transaction ${transaction.id}:`);
-        console.log(`  Amount: ${transaction.amountDetails?.baseAmount || 'N/A'} ${transaction.currency || 'N/A'}`);
+        console.log(`  Response: ${transaction.processorResponseMessage}`);
         console.log(`  Type: ${transaction.transactionType}`);
-        console.log(`  Status: ${transaction.conveyedStatus || 'N/A'}`);
+        console.log(`  Response Type: ${transaction.responseType || 'N/A'}`);
         console.log(`  Date: ${transaction.transactionDateTime}`);
       });
 
