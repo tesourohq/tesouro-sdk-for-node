@@ -70,7 +70,7 @@ jobs:
           fi
 
       - name: Upload audit report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: security-audit-report
           path: |
@@ -211,7 +211,7 @@ jobs:
           fi
 
       - name: Upload license report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: license-report
           path: |
@@ -245,7 +245,7 @@ jobs:
     
     steps:
       - name: Download all reports
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         continue-on-error: true
 
       - name: Create security summary
