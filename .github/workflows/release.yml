@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*.*.*'
+    branches:
+      - 'PRODEV-16468-add-cd-to-publish-sdk'  # Temporary: for testing
   workflow_dispatch:
     inputs:
       version:
