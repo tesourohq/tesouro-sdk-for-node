@@ -1,6 +1,6 @@
 {
   "name": "@tesouro/tesouro-sdk-for-node",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "TypeScript-first Node.js SDK for GraphQL API with OpenID Connect authentication",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -33,7 +33,7 @@
     "prepare": "husky",
     "prepublishOnly": "npm run clean && npm run build && npm run test:coverage",
     "prepack": "npm run build",
-    "version": "npm run build && git add dist/",
+    "version": "npm run build",
     "postversion": "git push && git push --tags",
     "release": "npm version patch && npm publish",
     "release:minor": "npm version minor && npm publish",

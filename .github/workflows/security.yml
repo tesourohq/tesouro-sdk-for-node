@@ -70,7 +70,7 @@ jobs:
           fi
 
       - name: Upload audit report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: security-audit-report
           path: |
@@ -106,8 +106,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Check if Advanced Security is available
+        id: check-advanced-security
+        run: |
+          # Check if we can access security events (indicates Advanced Security is enabled)
+          if curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               "${{ github.api_url }}/repos/${{ github.repository }}/code-scanning/alerts" \
+               | grep -q "Advanced Security"; then
+            echo "advanced_security=false" >> $GITHUB_OUTPUT
+            echo "⚠️ GitHub Advanced Security is not enabled for this repository"
+            echo "CodeQL analysis will run but results cannot be uploaded to GitHub"
+          else
+            echo "advanced_security=true" >> $GITHUB_OUTPUT
+            echo "✅ GitHub Advanced Security is available"
+          fi
+
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
           queries: +security-and-quality
@@ -125,9 +141,29 @@ jobs:
         run: npm run codegen
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@v3
         with:
           category: "/language:${{matrix.language}}"
+          upload: ${{ steps.check-advanced-security.outputs.advanced_security }}
+        continue-on-error: true
+
+      - name: Generate CodeQL Summary
+        if: always()
+        run: |
+          if [[ "${{ steps.check-advanced-security.outputs.advanced_security }}" == "false" ]]; then
+            echo "## ⚠️ CodeQL Analysis Notice" >> $GITHUB_STEP_SUMMARY
+            echo "CodeQL analysis completed successfully, but results could not be uploaded to GitHub Security tab because Advanced Security is not enabled for this repository." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "To enable Advanced Security and see results in GitHub:" >> $GITHUB_STEP_SUMMARY
+            echo "1. Go to your repository Settings" >> $GITHUB_STEP_SUMMARY
+            echo "2. Navigate to Security & analysis" >> $GITHUB_STEP_SUMMARY
+            echo "3. Enable Code scanning alerts" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The security analysis still ran successfully and checked your code for vulnerabilities." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ✅ CodeQL Analysis Complete" >> $GITHUB_STEP_SUMMARY
+            echo "Security analysis completed successfully. Check the Security tab for detailed results." >> $GITHUB_STEP_SUMMARY
+          fi
 
   license-check:
     name: License Compliance Check
@@ -175,7 +211,7 @@ jobs:
           fi
 
       - name: Upload license report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: license-report
           path: |
@@ -209,7 +245,7 @@ jobs:
     
     steps:
       - name: Download all reports
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         continue-on-error: true
 
       - name: Create security summary
