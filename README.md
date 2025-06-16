@@ -2,7 +2,7 @@
 
 A TypeScript-first GraphQL SDK for the Tesouro payment platform with built-in OAuth 2.0 authentication and comprehensive error handling.
 
-[![npm version](https://badge.fury.io/js/@tesouro/tesouro-sdk-for-node.svg)](https://badge.fury.io/js/@tesouro/tesouro-sdk-for-node)
+[![npm version](https://img.shields.io/npm/v/@tesouro/tesouro-sdk-for-node.svg)](https://www.npmjs.com/package/@tesouro/tesouro-sdk-for-node)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
