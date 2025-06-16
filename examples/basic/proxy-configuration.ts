@@ -206,8 +206,7 @@ export async function demonstrateProxyUsage() {
   }
 }
 
-// Export for testing or direct usage
-export { demonstrateProxyUsage };
+// Function is already exported above
 
 // Example environment setup script
 export function printProxyEnvironmentGuide() {
