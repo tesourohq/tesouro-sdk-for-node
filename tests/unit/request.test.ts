@@ -1,6 +1,7 @@
 import { makeRequest, get, post, mergeHeaders, DEFAULT_TIMEOUT } from '../../src/request';
 import { NetworkError, ResponseError } from '../../src/errors';
 import { setupFetchMock, setupTimerMocks, cleanupTimerMocks, createMockResponse } from '../helpers';
+import { ProxyAgent } from 'undici';
 
 describe('HTTP Request Wrapper', () => {
   const mockFetch = setupFetchMock();
@@ -423,6 +424,187 @@ describe('HTTP Request Wrapper', () => {
       await makeRequest('https://api.example.com/test', { timeout: 5000 });
 
       expect(clearTimeout).toHaveBeenCalled();
+    });
+  });
+
+  describe('proxy support', () => {
+    let originalEnv: NodeJS.ProcessEnv;
+
+    beforeEach(() => {
+      originalEnv = { ...process.env };
+      // Clear proxy environment variables
+      delete process.env.HTTP_PROXY;
+      delete process.env.HTTPS_PROXY;
+      delete process.env.http_proxy;
+      delete process.env.https_proxy;
+    });
+
+    afterEach(() => {
+      process.env = originalEnv;
+    });
+
+    it('should detect proxy from HTTPS_PROXY environment variable', async () => {
+      process.env.HTTPS_PROXY = 'http://proxy.example.com:8080';
+
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: jest.fn().mockResolvedValue({ data: 'test' }),
+      };
+      mockFetch.mockResolvedValue(mockResponse);
+
+      await makeRequest('https://api.example.com/test');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/test',
+        expect.objectContaining({
+          dispatcher: expect.any(ProxyAgent),
+          signal: expect.any(AbortSignal),
+        })
+      );
+    });
+
+    it('should detect proxy from HTTP_PROXY environment variable', async () => {
+      process.env.HTTP_PROXY = 'http://proxy.example.com:3128';
+
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: jest.fn().mockResolvedValue({ data: 'test' }),
+      };
+      mockFetch.mockResolvedValue(mockResponse);
+
+      await makeRequest('https://api.example.com/test');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/test',
+        expect.objectContaining({
+          dispatcher: expect.any(ProxyAgent),
+          signal: expect.any(AbortSignal),
+        })
+      );
+    });
+
+    it('should prioritize HTTPS_PROXY over HTTP_PROXY', async () => {
+      process.env.HTTP_PROXY = 'http://http-proxy.example.com:8080';
+      process.env.HTTPS_PROXY = 'http://https-proxy.example.com:8080';
+
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: jest.fn().mockResolvedValue({ data: 'test' }),
+      };
+      mockFetch.mockResolvedValue(mockResponse);
+
+      await makeRequest('https://api.example.com/test');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/test',
+        expect.objectContaining({
+          dispatcher: expect.any(ProxyAgent),
+          signal: expect.any(AbortSignal),
+        })
+      );
+    });
+
+    it('should use explicit proxy config over environment variables', async () => {
+      process.env.HTTPS_PROXY = 'http://env-proxy.example.com:8080';
+
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: jest.fn().mockResolvedValue({ data: 'test' }),
+      };
+      mockFetch.mockResolvedValue(mockResponse);
+
+      await makeRequest('https://api.example.com/test', {
+        proxy: {
+          url: 'http://explicit-proxy.example.com:9090',
+        },
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/test',
+        expect.objectContaining({
+          dispatcher: expect.any(ProxyAgent),
+          signal: expect.any(AbortSignal),
+        })
+      );
+    });
+
+    it('should create proxy agent with authentication', async () => {
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: jest.fn().mockResolvedValue({ data: 'test' }),
+      };
+      mockFetch.mockResolvedValue(mockResponse);
+
+      await makeRequest('https://api.example.com/test', {
+        proxy: {
+          url: 'http://proxy.example.com:8080',
+          username: 'user',
+          password: 'pass',
+        },
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/test',
+        expect.objectContaining({
+          dispatcher: expect.any(ProxyAgent),
+          signal: expect.any(AbortSignal),
+        })
+      );
+    });
+
+    it('should not use proxy when no configuration provided', async () => {
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: jest.fn().mockResolvedValue({ data: 'test' }),
+      };
+      mockFetch.mockResolvedValue(mockResponse);
+
+      await makeRequest('https://api.example.com/test');
+
+      expect(mockFetch).toHaveBeenCalledWith('https://api.example.com/test', {
+        signal: expect.any(AbortSignal),
+      });
+    });
+
+    it('should detect proxy from lowercase environment variables', async () => {
+      process.env.https_proxy = 'http://lowercase-proxy.example.com:8080';
+
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: jest.fn().mockResolvedValue({ data: 'test' }),
+      };
+      mockFetch.mockResolvedValue(mockResponse);
+
+      await makeRequest('https://api.example.com/test');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/test',
+        expect.objectContaining({
+          dispatcher: expect.any(ProxyAgent),
+          signal: expect.any(AbortSignal),
+        })
+      );
     });
   });
 });

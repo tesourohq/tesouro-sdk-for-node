@@ -1,5 +1,6 @@
 import {
   ClientConfig,
+  ProxyConfig,
   DEFAULT_CONFIG,
   isValidString,
   isValidNumber,
@@ -336,5 +337,71 @@ describe('Default Configuration', () => {
     expect(DEFAULT_CONFIG.ENDPOINT).toBe('https://api.sandbox.tesouro.com/graphql');
     expect(DEFAULT_CONFIG.TIMEOUT).toBe(30000);
     expect(DEFAULT_CONFIG.AUTH_TIMEOUT).toBe(10000);
+  });
+});
+
+describe('Proxy Configuration', () => {
+  describe('proxy config in ClientConfig', () => {
+    it('should accept valid proxy configuration', () => {
+      const config: ClientConfig = {
+        clientId: 'test-id',
+        clientSecret: 'test-secret',
+        proxy: {
+          url: 'http://proxy.example.com:8080',
+          username: 'user',
+          password: 'pass',
+        },
+      };
+
+      expect(() => validateClientConfig(config)).not.toThrow();
+    });
+
+    it('should accept proxy config without authentication', () => {
+      const config: ClientConfig = {
+        clientId: 'test-id',
+        clientSecret: 'test-secret',
+        proxy: {
+          url: 'http://proxy.example.com:8080',
+        },
+      };
+
+      expect(() => validateClientConfig(config)).not.toThrow();
+    });
+
+    it('should work without proxy configuration', () => {
+      const config: ClientConfig = {
+        clientId: 'test-id',
+        clientSecret: 'test-secret',
+      };
+
+      expect(() => validateClientConfig(config)).not.toThrow();
+    });
+
+    it('should preserve proxy config in applyConfigDefaults', () => {
+      const proxyConfig: ProxyConfig = {
+        url: 'http://proxy.example.com:8080',
+        username: 'user',
+        password: 'pass',
+      };
+
+      const config: ClientConfig = {
+        clientId: 'test-id',
+        clientSecret: 'test-secret',
+        proxy: proxyConfig,
+      };
+
+      const result = applyConfigDefaults(config);
+      expect(result.proxy).toEqual(proxyConfig);
+    });
+
+    it('should not include proxy in defaults when not provided', () => {
+      const config: ClientConfig = {
+        clientId: 'test-id',
+        clientSecret: 'test-secret',
+      };
+
+      const result = applyConfigDefaults(config);
+      expect(result.proxy).toBeUndefined();
+    });
   });
 });

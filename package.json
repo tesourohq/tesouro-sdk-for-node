@@ -21,6 +21,8 @@
     "codegen:compile-plugin": "npx tsc codegen-plugin.ts --target es2020 --module commonjs --moduleResolution node --strict --esModuleInterop --skipLibCheck",
     "codegen:watch": "graphql-codegen --config codegen.yml --watch",
     "test": "jest",
+    "test:unit": "jest tests/unit",
+    "test:integration": "jest tests/integration",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:helpers": "jest tests/unit/request.test.ts --passWithNoTests",
@@ -115,5 +117,8 @@
       "prettier --write",
       "eslint --fix"
     ]
+  },
+  "dependencies": {
+    "undici": "^7.10.0"
   }
 }

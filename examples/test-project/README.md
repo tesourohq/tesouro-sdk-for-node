@@ -15,6 +15,11 @@ This is a test project for manually testing the Tesouro SDK with real API endpoi
    TESOURO_CLIENT_SECRET=your-actual-client-secret
    TESOURO_ENDPOINT=https://api.sandbox.tesouro.com/graphql
    TESOURO_TOKEN_ENDPOINT=https://api.sandbox.tesouro.com/openid/connect/token
+   
+   # Optional: Proxy configuration
+   HTTPS_PROXY=http://proxy.company.com:8080
+   PROXY_USERNAME=your-proxy-username
+   PROXY_PASSWORD=your-proxy-password
    ```
 
 3. Install dependencies:
@@ -30,6 +35,8 @@ This is a test project for manually testing the Tesouro SDK with real API endpoi
 - `npm run test:auth` - Tests authentication scenarios
 - `npm run test:pagination` - Tests comprehensive pagination patterns (5 different approaches)
 - `npm run test:concurrent` - Tests concurrent request patterns (5 different approaches)
+- `npm run test:proxy` - Tests HTTP proxy configuration examples
+- `npm run test:token-refresh` - Tests token refresh scenarios
 
 ## Development
 

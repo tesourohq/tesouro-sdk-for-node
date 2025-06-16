@@ -10,6 +10,7 @@ A TypeScript-first GraphQL SDK for the Tesouro payment platform with built-in OA
 
 - 🚀 **TypeScript-first** - Full type safety with auto-generated types from GraphQL schema
 - 🔐 **Automatic Authentication** - Built-in OAuth 2.0 client credentials flow with token refresh
+- 🌐 **Proxy Support** - HTTP/HTTPS proxy configuration with authentication
 - 📊 **GraphQL Native** - Strongly-typed GraphQL operations with automatic query generation
 - ⚡ **Performance Optimized** - Concurrent request support and intelligent token management
 - 🛡️ **Error Handling** - Comprehensive error types and validation
@@ -108,6 +109,7 @@ The SDK includes comprehensive examples for common use cases:
 ### Authentication & Security
 - **[Authentication Patterns](examples/test-project/src/auth.ts)** - OAuth setup and token management
 - **[Token Refresh](examples/test-project/src/token-refresh.ts)** - Advanced token handling strategies
+- **[Proxy Configuration](examples/test-project/src/proxy-examples.ts)** - HTTP proxy setup and corporate network support
 
 ### Running Examples
 
@@ -118,6 +120,7 @@ cp .env.example .env   # Add your credentials
 npm run test:query     # Test query operations
 npm run test:auth      # Test authentication
 npm run test:mutations # Test payment operations
+npm run test:proxy     # Test proxy configuration
 ```
 
 ## Configuration
@@ -131,6 +134,10 @@ TESOURO_CLIENT_ID=your-client-id
 TESOURO_CLIENT_SECRET=your-client-secret
 TESOURO_ENDPOINT=https://api.sandbox.tesouro.com/graphql
 TESOURO_TOKEN_ENDPOINT=https://api.sandbox.tesouro.com/openid/connect/token
+
+# Optional: Proxy configuration
+HTTPS_PROXY=http://proxy.company.com:8080
+HTTP_PROXY=http://proxy.company.com:8080
 ```
 
 ### Client Configuration
@@ -147,6 +154,13 @@ const client = new TesouroClient({
   timeout: 30000, // Request timeout in ms
   headers: {
     'X-API-Version': '2024-01-01' // Default headers
+  },
+  
+  // Proxy configuration (optional)
+  proxy: {
+    url: 'http://proxy.company.com:8080',
+    username: 'proxy-user', // Optional
+    password: 'proxy-pass'  // Optional
   }
 });
 ```
@@ -202,6 +216,47 @@ const variables: QueryPaymentTransactionsArgs = {
 };
 ```
 
+## Proxy Support
+
+The SDK supports HTTP/HTTPS proxies for corporate environments:
+
+### Environment Variable Configuration (Automatic)
+
+```bash
+# Set proxy via environment variables (recommended)
+export HTTPS_PROXY=http://proxy.company.com:8080
+export HTTP_PROXY=http://proxy.company.com:8080
+
+# With authentication
+export HTTPS_PROXY=http://username:password@proxy.company.com:8080
+```
+
+### Explicit Configuration
+
+```typescript
+const client = new TesouroClient({
+  clientId: 'your-client-id',
+  clientSecret: 'your-client-secret',
+  proxy: {
+    url: 'http://proxy.company.com:8080',
+    username: 'proxy-username', // Optional
+    password: 'proxy-password'  // Optional
+  }
+});
+```
+
+### Proxy Priority
+
+1. **Explicit proxy configuration** (highest priority)
+2. `HTTPS_PROXY` environment variable  
+3. `HTTP_PROXY` environment variable
+4. `https_proxy` environment variable (lowercase)
+5. `http_proxy` environment variable (lowercase)
+
+📖 **[Complete Proxy Examples →](examples/basic/proxy-configuration.ts)**
+
+🧪 **[Test Proxy Setup →](examples/test-project/src/proxy-examples.ts)**
+
 ## Advanced Features
 
 ### Concurrent Requests
@@ -256,8 +311,6 @@ npm install
 ```bash
 npm run build            # Build the project
 npm run test             # Run all tests
-npm run test:unit        # Run unit tests only
-npm run test:integration # Run integration tests
 npm run lint             # Lint code
 npm run typecheck        # Type checking
 npm run docs             # Generate documentation
@@ -273,8 +326,6 @@ The SDK includes comprehensive test suites:
 
 ```bash
 npm test                   # All tests
-npm run test:unit          # Unit tests only
-npm run test:integration   # Integration tests only
 ```
 
 ## License
