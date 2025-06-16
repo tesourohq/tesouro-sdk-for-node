@@ -257,6 +257,10 @@ TESOURO_CLIENT_ID=your-client-id
 TESOURO_CLIENT_SECRET=your-client-secret
 TESOURO_ENDPOINT=https://api.sandbox.tesouro.com/graphql
 TESOURO_TOKEN_ENDPOINT=https://api.sandbox.tesouro.com/openid/connect/token
+
+# Optional: Proxy configuration
+HTTPS_PROXY=http://proxy.company.com:8080
+HTTP_PROXY=http://proxy.company.com:8080
 ```
 
 ## TypeScript Support

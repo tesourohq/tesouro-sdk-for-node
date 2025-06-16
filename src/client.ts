@@ -14,6 +14,7 @@ import {
 } from './graphql';
 import {
   type ClientConfig,
+  type ProxyConfig,
   validateClientConfig,
   applyConfigDefaults,
   deriveTokenEndpoint,
@@ -58,7 +59,7 @@ export interface ClientRequestOptions extends Omit<GraphQLRequestOptions, 'heade
  * with automatic token management and comprehensive error handling.
  */
 export class ApiClient {
-  private readonly config: Required<ClientConfig>;
+  private readonly config: Required<Omit<ClientConfig, 'proxy'>> & { proxy?: ProxyConfig };
   private readonly authManager: AuthManager;
 
   /**
@@ -149,6 +150,7 @@ export class ApiClient {
         variables: variables as Record<string, unknown> | undefined,
         headers: requestHeaders,
         timeout: graphqlOptions.timeout || this.config.timeout,
+        ...(this.config.proxy && { proxy: this.config.proxy }),
       });
     } catch (error: unknown) {
       // Handle retryable errors by attempting token refresh
@@ -186,6 +188,7 @@ export class ApiClient {
           variables: variables as Record<string, unknown> | undefined,
           headers: requestHeaders,
           timeout: graphqlOptions.timeout || this.config.timeout,
+          ...(this.config.proxy && { proxy: this.config.proxy }),
         });
       }
 
@@ -272,7 +275,7 @@ export class ApiClient {
    *
    * @returns Client configuration (read-only copy)
    */
-  getConfig(): Readonly<Required<ClientConfig>> {
+  getConfig(): Readonly<Required<Omit<ClientConfig, 'proxy'>> & { proxy?: ProxyConfig }> {
     return { ...this.config };
   }
 

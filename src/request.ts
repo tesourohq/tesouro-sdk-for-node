@@ -2,10 +2,12 @@
  * HTTP request utilities for the Tesouro SDK
  *
  * Provides a wrapper around the native fetch API with timeout support,
- * error handling, and proper NetworkError creation.
+ * error handling, proxy support, and proper NetworkError creation.
  */
 
+import { ProxyAgent, type Dispatcher } from 'undici';
 import { NetworkError, ResponseError, ErrorUtils } from './errors';
+import type { ProxyConfig } from './types';
 
 /**
  * HTTP request options interface
@@ -21,6 +23,8 @@ export interface RequestOptions {
   timeout?: number;
   /** AbortController signal for cancellation */
   signal?: AbortSignal;
+  /** Proxy configuration */
+  proxy?: ProxyConfig;
 }
 
 /**
@@ -45,6 +49,43 @@ export interface HttpResponse<T = unknown> {
 export const DEFAULT_TIMEOUT = 30000; // 30 seconds
 
 /**
+ * Detects proxy configuration from environment variables
+ * Supports HTTP_PROXY, HTTPS_PROXY, http_proxy, https_proxy
+ *
+ * @returns Proxy URL if found, undefined otherwise
+ */
+function detectProxyFromEnvironment(): string | undefined {
+  return (
+    process.env.HTTPS_PROXY ||
+    process.env.HTTP_PROXY ||
+    process.env.https_proxy ||
+    process.env.http_proxy
+  );
+}
+
+/**
+ * Creates a proxy agent from proxy configuration
+ *
+ * @param proxyConfig - Proxy configuration
+ * @returns ProxyAgent instance
+ */
+function createProxyAgent(proxyConfig: ProxyConfig): ProxyAgent {
+  const { url, username, password } = proxyConfig;
+
+  let proxyUrl = url;
+
+  // Add authentication if provided
+  if (username && password) {
+    const urlObj = new URL(url);
+    urlObj.username = username;
+    urlObj.password = password;
+    proxyUrl = urlObj.toString();
+  }
+
+  return new ProxyAgent(proxyUrl);
+}
+
+/**
  * Makes an HTTP request with timeout support and error handling
  *
  * @param url - The URL to request
@@ -56,7 +97,21 @@ export async function makeRequest<T = unknown>(
   url: string,
   options: RequestOptions = {}
 ): Promise<HttpResponse<T>> {
-  const { timeout = DEFAULT_TIMEOUT, signal, ...fetchOptions } = options;
+  const { timeout = DEFAULT_TIMEOUT, signal, proxy, ...fetchOptions } = options;
+
+  // Setup proxy configuration
+  let dispatcher: Dispatcher | undefined;
+
+  // Use explicit proxy config if provided
+  if (proxy) {
+    dispatcher = createProxyAgent(proxy);
+  } else {
+    // Check environment variables for proxy
+    const envProxyUrl = detectProxyFromEnvironment();
+    if (envProxyUrl) {
+      dispatcher = createProxyAgent({ url: envProxyUrl });
+    }
+  }
 
   // Create AbortController for timeout
   const controller = new AbortController();
@@ -77,10 +132,16 @@ export async function makeRequest<T = unknown>(
 
   try {
     // Make the HTTP request
-    const response = await fetch(url, {
+    const fetchInit: any = {
       ...fetchOptions,
       signal: combinedSignal,
-    });
+    };
+
+    if (dispatcher) {
+      fetchInit.dispatcher = dispatcher;
+    }
+
+    const response = await fetch(url, fetchInit);
 
     // Clear the timeout since request completed
     clearTimeout(timeoutId);

@@ -14,7 +14,8 @@
     "test:auth": "tsx src/auth.ts",
     "test:pagination": "tsx src/pagination.ts",
     "test:concurrent": "tsx src/concurrent-requests.ts",
-    "test:token-refresh": "tsx src/token-refresh.ts"
+    "test:token-refresh": "tsx src/token-refresh.ts",
+    "test:proxy": "tsx src/proxy-examples.ts"
   },
   "dependencies": {
     "@tesouro/tesouro-sdk-for-node": "file:../../"

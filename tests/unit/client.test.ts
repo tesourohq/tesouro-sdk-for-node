@@ -648,4 +648,120 @@ describe('ApiClient', () => {
       );
     });
   });
+
+  describe('proxy configuration', () => {
+    it('should pass proxy configuration to GraphQL requests', async () => {
+      const clientWithProxy = new ApiClient({
+        ...baseConfig,
+        proxy: {
+          url: 'http://proxy.example.com:8080',
+          username: 'proxy-user',
+          password: 'proxy-pass',
+        },
+      });
+
+      mockAuthManager.isTokenValid.mockReturnValue(true);
+      mockAuthManager.getAuthorizationHeader.mockReturnValue('Bearer test-token');
+
+      const mockResult = { data: {}, response: {} as any };
+      mockMakeGraphQLRequest.mockResolvedValue(mockResult);
+
+      await clientWithProxy.request('query { test }');
+
+      expect(mockMakeGraphQLRequest).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.objectContaining({
+          proxy: {
+            url: 'http://proxy.example.com:8080',
+            username: 'proxy-user',
+            password: 'proxy-pass',
+          },
+        })
+      );
+    });
+
+    it('should pass proxy configuration to retry requests', async () => {
+      const clientWithProxy = new ApiClient({
+        ...baseConfig,
+        proxy: {
+          url: 'http://proxy.example.com:8080',
+        },
+      });
+
+      mockAuthManager.isTokenValid.mockReturnValueOnce(true).mockReturnValueOnce(true);
+      mockAuthManager.getAuthorizationHeader.mockReturnValue('Bearer old-token');
+      mockAuthManager.refreshToken.mockResolvedValue(undefined);
+
+      // First call fails with 401
+      const mockNetworkError = new NetworkError('Unauthorized', 401);
+      // Second call succeeds
+      const mockResult = { data: {}, response: {} as any };
+
+      mockMakeGraphQLRequest
+        .mockRejectedValueOnce(mockNetworkError)
+        .mockResolvedValueOnce(mockResult);
+
+      await clientWithProxy.request('query { test }');
+
+      // Verify both calls include proxy config
+      expect(mockMakeGraphQLRequest).toHaveBeenCalledTimes(2);
+      expect(mockMakeGraphQLRequest).toHaveBeenNthCalledWith(
+        1,
+        expect.any(String),
+        expect.any(String),
+        expect.objectContaining({
+          proxy: {
+            url: 'http://proxy.example.com:8080',
+          },
+        })
+      );
+      expect(mockMakeGraphQLRequest).toHaveBeenNthCalledWith(
+        2,
+        expect.any(String),
+        expect.any(String),
+        expect.objectContaining({
+          proxy: {
+            url: 'http://proxy.example.com:8080',
+          },
+        })
+      );
+    });
+
+    it('should not include proxy in requests when not configured', async () => {
+      const client = new ApiClient(baseConfig);
+
+      mockAuthManager.isTokenValid.mockReturnValue(true);
+      mockAuthManager.getAuthorizationHeader.mockReturnValue('Bearer test-token');
+
+      const mockResult = { data: {}, response: {} as any };
+      mockMakeGraphQLRequest.mockResolvedValue(mockResult);
+
+      await client.request('query { test }');
+
+      expect(mockMakeGraphQLRequest).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.not.objectContaining({
+          proxy: expect.anything(),
+        })
+      );
+    });
+
+    it('should include proxy configuration in getConfig result', () => {
+      const proxyConfig = {
+        url: 'http://proxy.example.com:8080',
+        username: 'user',
+        password: 'pass',
+      };
+
+      const client = new ApiClient({
+        ...baseConfig,
+        proxy: proxyConfig,
+      });
+
+      const config = client.getConfig();
+      expect(config.proxy).toEqual(proxyConfig);
+    });
+  });
 });

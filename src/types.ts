@@ -8,6 +8,18 @@
 import { ClientCredentials } from './auth';
 
 /**
+ * Proxy configuration options
+ */
+export interface ProxyConfig {
+  /** Proxy URL (e.g., 'http://proxy.example.com:8080') */
+  url: string;
+  /** Proxy authentication username */
+  username?: string;
+  /** Proxy authentication password */
+  password?: string;
+}
+
+/**
  * SDK client configuration interface
  */
 export interface ClientConfig {
@@ -23,6 +35,8 @@ export interface ClientConfig {
   headers?: Record<string, string>;
   /** OAuth token endpoint URL (default: derived from endpoint) */
   tokenEndpoint?: string;
+  /** Proxy configuration (overrides environment variables) */
+  proxy?: ProxyConfig;
 }
 
 /**
@@ -259,7 +273,9 @@ export function validateClientConfig(config: unknown): asserts config is ClientC
  * @param config - The input configuration
  * @returns Configuration with defaults applied
  */
-export function applyConfigDefaults(config: ClientConfig): Required<ClientConfig> {
+export function applyConfigDefaults(
+  config: ClientConfig
+): Required<Omit<ClientConfig, 'proxy'>> & { proxy?: ProxyConfig } {
   const endpoint = config.endpoint || process.env.TESOURO_ENDPOINT || DEFAULT_CONFIG.ENDPOINT;
 
   return {
@@ -269,6 +285,7 @@ export function applyConfigDefaults(config: ClientConfig): Required<ClientConfig
     timeout: config.timeout ?? DEFAULT_CONFIG.TIMEOUT,
     headers: config.headers ?? {},
     tokenEndpoint: config.tokenEndpoint ?? deriveTokenEndpoint(endpoint),
+    ...(config.proxy && { proxy: config.proxy }),
   };
 }
 
