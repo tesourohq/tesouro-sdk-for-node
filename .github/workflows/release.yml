@@ -206,6 +206,8 @@ jobs:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     needs: [validate-release, publish-npm]
+    permissions:
+      contents: write  # Needed to create tags and releases
     
     steps:
       - name: Checkout code
@@ -215,6 +217,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: release-assets
+
+      - name: Create git tag
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git tag ${{ needs.validate-release.outputs.tag }}
+          git push origin ${{ needs.validate-release.outputs.tag }}
 
       - name: Create GitHub Release
         if: ${{ github.event.inputs.dry_run != 'true' }}
