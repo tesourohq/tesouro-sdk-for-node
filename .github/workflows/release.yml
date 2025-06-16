@@ -174,20 +174,20 @@ jobs:
           "
 
       - name: Publish to NPM
-        if: ${{ github.event.inputs.dry_run != 'true' && github.ref_type == 'tag' }}
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Simulate NPM publish (dry run)
-        if: ${{ github.event.inputs.dry_run == 'true' || github.ref_type != 'tag' }}
+        if: ${{ github.event.inputs.dry_run == 'true' }}
         run: |
           echo "🧪 DRY RUN: Would publish package to NPM"
           npm pack
           echo "✅ Package build verification completed"
 
       - name: Verify publication
-        if: ${{ github.event.inputs.dry_run != 'true' && github.ref_type == 'tag' }}
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         run: |
           # Wait a moment for NPM to update
           sleep 10
@@ -197,7 +197,7 @@ jobs:
           echo "✅ Package successfully published to NPM"
 
       - name: Skip publication verification (dry run)
-        if: ${{ github.event.inputs.dry_run == 'true' || github.ref_type != 'tag' }}
+        if: ${{ github.event.inputs.dry_run == 'true' }}
         run: |
           echo "🧪 DRY RUN: Skipping NPM publication verification"
           echo "✅ Would verify package @tesouro/tesouro-sdk-for-node@${{ needs.validate-release.outputs.version }}"
@@ -217,7 +217,7 @@ jobs:
           name: release-assets
 
       - name: Create GitHub Release
-        if: ${{ github.event.inputs.dry_run != 'true' && github.ref_type == 'tag' }}
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -229,7 +229,7 @@ jobs:
           prerelease: ${{ contains(needs.validate-release.outputs.version, '-') }}
 
       - name: Simulate GitHub Release (dry run)
-        if: ${{ github.event.inputs.dry_run == 'true' || github.ref_type != 'tag' }}
+        if: ${{ github.event.inputs.dry_run == 'true' }}
         run: |
           echo "🧪 DRY RUN: Would create GitHub release"
           echo "Tag: ${{ needs.validate-release.outputs.tag }}"
