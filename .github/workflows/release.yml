@@ -15,6 +15,11 @@ on:
         required: false
         type: boolean
         default: true
+      skip_npm:
+        description: 'Skip NPM publishing (test GitHub releases only)'
+        required: false
+        type: boolean
+        default: false
 
 env:
   NODE_ENV: test
@@ -174,10 +179,18 @@ jobs:
           "
 
       - name: Publish to NPM
-        if: ${{ github.event.inputs.dry_run != 'true' }}
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.skip_npm != 'true' }}
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Skip NPM publish (skip_npm enabled)
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.skip_npm == 'true' }}
+        run: |
+          echo "⏭️ SKIPPING NPM PUBLISH: skip_npm flag enabled"
+          echo "This allows testing GitHub releases without republishing to NPM"
+          npm pack
+          echo "✅ Package build verification completed"
 
       - name: Simulate NPM publish (dry run)
         if: ${{ github.event.inputs.dry_run == 'true' }}
@@ -187,7 +200,7 @@ jobs:
           echo "✅ Package build verification completed"
 
       - name: Verify publication
-        if: ${{ github.event.inputs.dry_run != 'true' }}
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.skip_npm != 'true' }}
         run: |
           # Wait a moment for NPM to update
           sleep 10
@@ -195,6 +208,12 @@ jobs:
           # Verify the package is available
           npm view @tesouro/tesouro-sdk-for-node@${{ needs.validate-release.outputs.version }} version
           echo "✅ Package successfully published to NPM"
+
+      - name: Skip publication verification (NPM skipped)
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.skip_npm == 'true' }}
+        run: |
+          echo "⏭️ SKIPPING NPM VERIFICATION: NPM publish was skipped"
+          echo "✅ GitHub release will still be created"
 
       - name: Skip publication verification (dry run)
         if: ${{ github.event.inputs.dry_run == 'true' }}
