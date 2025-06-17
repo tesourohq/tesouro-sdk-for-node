@@ -4,22 +4,6 @@ on:
   push:
     tags:
       - 'v*.*.*'
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to test (e.g., 0.0.4-test)'
-        required: true
-        type: string
-      dry_run:
-        description: 'Dry run (skip actual publishing)'
-        required: false
-        type: boolean
-        default: true
-      skip_npm:
-        description: 'Skip NPM publishing (test GitHub releases only)'
-        required: false
-        type: boolean
-        default: false
 
 env:
   NODE_ENV: test
@@ -48,22 +32,10 @@ jobs:
       - name: Extract version info
         id: version
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            # Manual workflow - use input version
-            VERSION="${{ github.event.inputs.version }}"
-            TAG="v$VERSION"
-            echo "🧪 Test mode: Using provided version $VERSION"
-          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            # Tag push - extract from tag
-            TAG=${GITHUB_REF#refs/tags/}
-            VERSION=${TAG#v}
-            echo "🚀 Release mode: Using tag $TAG"
-          else
-            # Branch push - use package.json version for testing
-            VERSION=$(node -p "require('./package.json').version")
-            TAG="v$VERSION"
-            echo "🧪 Test mode: Using package.json version $VERSION"
-          fi
+          # Extract version from git tag
+          TAG=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG#v}
+          echo "🚀 Release mode: Using tag $TAG"
           
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -179,28 +151,12 @@ jobs:
           "
 
       - name: Publish to NPM
-        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.skip_npm != 'true' }}
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Skip NPM publish (skip_npm enabled)
-        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.skip_npm == 'true' }}
-        run: |
-          echo "⏭️ SKIPPING NPM PUBLISH: skip_npm flag enabled"
-          echo "This allows testing GitHub releases without republishing to NPM"
-          npm pack
-          echo "✅ Package build verification completed"
-
-      - name: Simulate NPM publish (dry run)
-        if: ${{ github.event.inputs.dry_run == 'true' }}
-        run: |
-          echo "🧪 DRY RUN: Would publish package to NPM"
-          npm pack
-          echo "✅ Package build verification completed"
 
       - name: Verify publication
-        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.skip_npm != 'true' }}
         run: |
           # Wait a moment for NPM to update
           sleep 10
@@ -208,18 +164,6 @@ jobs:
           # Verify the package is available
           npm view @tesouro/tesouro-sdk-for-node@${{ needs.validate-release.outputs.version }} version
           echo "✅ Package successfully published to NPM"
-
-      - name: Skip publication verification (NPM skipped)
-        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.skip_npm == 'true' }}
-        run: |
-          echo "⏭️ SKIPPING NPM VERIFICATION: NPM publish was skipped"
-          echo "✅ GitHub release will still be created"
-
-      - name: Skip publication verification (dry run)
-        if: ${{ github.event.inputs.dry_run == 'true' }}
-        run: |
-          echo "🧪 DRY RUN: Skipping NPM publication verification"
-          echo "✅ Would verify package @tesouro/tesouro-sdk-for-node@${{ needs.validate-release.outputs.version }}"
 
   create-github-release:
     name: Create GitHub Release
@@ -237,16 +181,8 @@ jobs:
         with:
           name: release-assets
 
-      - name: Create git tag
-        if: ${{ github.event.inputs.dry_run != 'true' }}
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git tag ${{ needs.validate-release.outputs.tag }}
-          git push origin ${{ needs.validate-release.outputs.tag }}
 
       - name: Create GitHub Release
-        if: ${{ github.event.inputs.dry_run != 'true' }}
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -256,16 +192,6 @@ jobs:
           body_path: release-notes.md
           draft: false
           prerelease: ${{ contains(needs.validate-release.outputs.version, '-') }}
-
-      - name: Simulate GitHub Release (dry run)
-        if: ${{ github.event.inputs.dry_run == 'true' }}
-        run: |
-          echo "🧪 DRY RUN: Would create GitHub release"
-          echo "Tag: ${{ needs.validate-release.outputs.tag }}"
-          echo "Version: ${{ needs.validate-release.outputs.version }}"
-          echo "Release notes:"
-          cat release-notes.md
-          echo "✅ GitHub release simulation completed"
 
   post-release:
     name: Post-Release Tasks
