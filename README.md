@@ -301,7 +301,7 @@ const authManager = new AuthManager(authConfig);
 ### Setup
 
 ```bash
-git clone https://github.com/tesouro/tesouro-sdk-for-node.git
+git clone https://github.com/tesourohq/tesouro-sdk-for-node.git
 cd tesouro-sdk-for-node
 npm install
 ```
@@ -326,6 +326,8 @@ The SDK includes comprehensive test suites:
 
 ```bash
 npm test                   # All tests
+npm test:unit              # Unit tests
+npm test:integration       # Integration tests
 ```
 
 ## License
