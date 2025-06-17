@@ -1,6 +1,6 @@
 {
   "name": "@tesouro/tesouro-sdk-for-node",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "TypeScript-first Node.js SDK for GraphQL API with OpenID Connect authentication",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
