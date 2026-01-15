@@ -119,6 +119,6 @@
     ]
   },
   "dependencies": {
-    "undici": "^7.10.0"
+    "undici": "^6.23.0"
   }
 }

@@ -29,7 +29,6 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1'
   },
-  setupFiles: ['<rootDir>/tests/polyfills.ts'],
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   verbose: true
 };
